@@ -12,85 +12,6 @@ dotenv.config();
 const sendgridApiKey = process.env.SENDGRID_API_KEY.replace(/^['"]|['"]$/g, '');
 sgMail.setApiKey(sendgridApiKey);
 
-//Métodos para comprobar el si el servidor funciona y si la base de datos está conectada correctamente
-app.get('/api/test', (req, res) => {
-  res.json({ success: true, message: "El servidor está funcionando correctamente en Railway!" });
-});
-
-app.get("/api/test-db", async (req, res) => {
-  try {
-    const [rows] = await pool.query("SELECT NOW() AS current_time");
-    res.json({ success: true, time: rows[0].current_time });
-  } catch (error) {
-    res.json({ success: false, error: error.message });
-  }
-});
-
-
-
-app.post('/generar-rutina', async (req, res) => {
-  try {
-    console.log('📥 Petición recibida en /generar-rutina');
-    console.log('➡️ Body recibido:', JSON.stringify(req.body, null, 2));
-
-    const {
-      usuarioId, nombreRutina, tiempoDisponible, enfoqueUsuario, diasEntrenamiento,
-      objetivo, nivel, restricciones = [], lugarEntrenamiento
-    } = req.body;
-
-    if (!usuarioId || !nombreRutina || !tiempoDisponible || !diasEntrenamiento || !objetivo || !nivel || !lugarEntrenamiento) {
-      console.warn('⚠️ Datos incompletos recibidos:', req.body);
-      return res.status(401).json({ success: false, message: 'Faltan datos requeridos' });
-    }
-
-    const diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-    const diasEntrenamientoOrdenados = diasSemana.filter(dia =>
-      diasEntrenamiento.map(d => d.toLowerCase()).includes(dia)
-    );
-    console.log('📅 Días de entrenamiento ordenados:', diasEntrenamientoOrdenados);
-
-    if (diasEntrenamientoOrdenados.length === 0) {
-      console.error('❌ Los días de entrenamiento no son válidos');
-      return res.status(402).json({ success: false, message: 'Los días de entrenamiento no son válidos' });
-    }
-
-    const distribucionEjercicios = databaseFunctions.calcularEjerciciosPorParte(
-      tiempoDisponible, enfoqueUsuario, diasEntrenamientoOrdenados.length, objetivo
-    );
-    console.log('📊 Distribución de ejercicios generada:', JSON.stringify(distribucionEjercicios, null, 2));
-
-    if (!distribucionEjercicios || distribucionEjercicios.length === 0) {
-      console.error('❌ No se pudo generar la distribución de ejercicios');
-      return res.status(403).json({ success: false, message: 'No se pudo generar la distribución de ejercicios' });
-    }
-
-    const resultado = await databaseFunctions.insertarRutinaEnBaseDeDatos(
-      usuarioId, nombreRutina, distribucionEjercicios, diasEntrenamientoOrdenados,
-      objetivo, nivel, restricciones, tiempoDisponible, lugarEntrenamiento
-    );
-
-    console.log('✅ Resultado de insertarRutinaEnBaseDeDatos:', resultado);
-
-    if (!resultado.success) {
-      console.error('❌ Error al insertar la rutina:', resultado.message);
-      return res.status(500).json({ success: false, message: 'Error al insertar la rutina', error: resultado.message });
-    }
-
-    console.log('🎉 Rutina generada con éxito, ID:', resultado.rutinaId);
-
-    res.status(201).json({
-      success: true,
-      message: 'Rutina generada exitosamente',
-      rutinaId: resultado.rutinaId
-    });
-
-  } catch (error) {
-    console.error('❌ Error inesperado en /generar-rutina:', error);
-    res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
-  }
-});
-
-
 // Ruta para enviar confirmación de correo
 app.post('/enviar-confirmacion-correo', async (req, res) => {
   const { correo, nombre, token } = req.body;
@@ -273,6 +194,68 @@ app.post('/ejercicios', async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+  }
+});
+
+app.post('/generar-rutina', async (req, res) => {
+  try {
+    console.log('📥 Petición recibida en /generar-rutina');
+    console.log('➡️ Body recibido:', JSON.stringify(req.body, null, 2));
+
+    const {
+      usuarioId, nombreRutina, tiempoDisponible, enfoqueUsuario, diasEntrenamiento,
+      objetivo, nivel, restricciones = [], lugarEntrenamiento
+    } = req.body;
+
+    if (!usuarioId || !nombreRutina || !tiempoDisponible || !diasEntrenamiento || !objetivo || !nivel || !lugarEntrenamiento) {
+      console.warn('⚠️ Datos incompletos recibidos:', req.body);
+      return res.status(401).json({ success: false, message: 'Faltan datos requeridos' });
+    }
+
+    const diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    const diasEntrenamientoOrdenados = diasSemana.filter(dia =>
+      diasEntrenamiento.map(d => d.toLowerCase()).includes(dia)
+    );
+    console.log('📅 Días de entrenamiento ordenados:', diasEntrenamientoOrdenados);
+
+    if (diasEntrenamientoOrdenados.length === 0) {
+      console.error('❌ Los días de entrenamiento no son válidos');
+      return res.status(402).json({ success: false, message: 'Los días de entrenamiento no son válidos' });
+    }
+
+    const distribucionEjercicios = databaseFunctions.calcularEjerciciosPorParte(
+      tiempoDisponible, enfoqueUsuario, diasEntrenamientoOrdenados.length, objetivo
+    );
+    console.log('📊 Distribución de ejercicios generada:', JSON.stringify(distribucionEjercicios, null, 2));
+
+    if (!distribucionEjercicios || distribucionEjercicios.length === 0) {
+      console.error('❌ No se pudo generar la distribución de ejercicios');
+      return res.status(403).json({ success: false, message: 'No se pudo generar la distribución de ejercicios' });
+    }
+
+    const resultado = await databaseFunctions.insertarRutinaEnBaseDeDatos(
+      usuarioId, nombreRutina, distribucionEjercicios, diasEntrenamientoOrdenados,
+      objetivo, nivel, restricciones, tiempoDisponible, lugarEntrenamiento
+    );
+
+    console.log('✅ Resultado de insertarRutinaEnBaseDeDatos:', resultado);
+
+    if (!resultado.success) {
+      console.error('❌ Error al insertar la rutina:', resultado.message);
+      return res.status(500).json({ success: false, message: 'Error al insertar la rutina', error: resultado.message });
+    }
+
+    console.log('🎉 Rutina generada con éxito, ID:', resultado.rutinaId);
+
+    res.status(201).json({
+      success: true,
+      message: 'Rutina generada exitosamente',
+      rutinaId: resultado.rutinaId
+    });
+
+  } catch (error) {
+    console.error('❌ Error inesperado en /generar-rutina:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
   }
 });
 
