@@ -1358,64 +1358,47 @@ export async function insertarRutinaEnBaseDeDatos(
     await connection.beginTransaction();
 
     const volumenPorObjetivoYNivel = {
-      'subir peso': {
-        principiante: { series: 3, repeticiones: 8 },
-        intermedio: { series: 4, repeticiones: 10 },
-        avanzado: { series: 4, repeticiones: 12 },
+      'subir peso': { 
+        principiante: { series: 3, repeticiones: 8 }, 
+        intermedio: { series: 4, repeticiones: 10 }, 
+        avanzado: { series: 4, repeticiones: 12 } 
       },
-      'bajar peso': {
-        principiante: { series: 3, repeticiones: 12 },
-        intermedio: { series: 4, repeticiones: 12 },
-        avanzado: { series: 4, repeticiones: 15 },
+      'bajar peso': { 
+        principiante: { series: 3, repeticiones: 12 }, 
+        intermedio: { series: 4, repeticiones: 12 }, 
+        avanzado: { series: 4, repeticiones: 15 } 
       },
-      definir: {
-        principiante: { series: 3, repeticiones: 12 },
-        intermedio: { series: 3, repeticiones: 15 },
-        avanzado: { series: 4, repeticiones: 15 },
+      'definir': { 
+        principiante: { series: 3, repeticiones: 12 }, 
+        intermedio: { series: 3, repeticiones: 15 }, 
+        avanzado: { series: 4, repeticiones: 15 } 
       },
-      'mantener peso': {
-        principiante: { series: 3, repeticiones: 10 },
-        intermedio: { series: 3, repeticiones: 12 },
-        avanzado: { series: 4, repeticiones: 12 },
+      'mantener peso': { 
+        principiante: { series: 3, repeticiones: 10 }, 
+        intermedio: { series: 3, repeticiones: 12 }, 
+        avanzado: { series: 4, repeticiones: 12 } 
       },
-      'mejorar resistencia': {
-        principiante: { series: 2, repeticiones: 15 },
-        intermedio: { series: 3, repeticiones: 15 },
-        avanzado: { series: 4, repeticiones: 15 },
-      },
+      'mejorar resistencia': { 
+        principiante: { series: 2, repeticiones: 15 }, 
+        intermedio: { series: 3, repeticiones: 15 }, 
+        avanzado: { series: 4, repeticiones: 15 } 
+      }
     };
-
+    
     const maxEjerciciosPorNivel = { principiante: 4, intermedio: 6, avanzado: 8 };
-    const descansoPorMusculo = {
-      pierna: 120,
-      pecho: 90,
-      espalda: 90,
-      gluteo: 120,
-      biceps: 60,
-      triceps: 60,
-      hombro: 60,
-      core: 30,
-    };
+    const descansoPorMusculo = { pierna: 120, pecho: 90, espalda: 90, gluteo: 120, biceps: 60, triceps: 60, hombro: 60, core: 30 };
     const tiempoPorSerieSegundos = 30;
-    const tiempoDisponibleSegundos = {
-      '30 minutos': 1800,
-      '1 hora': 3600,
-      '2 horas': 7200,
-      '3 horas': 10800,
-    }[tiempoDisponible];
+    const tiempoDisponibleSegundos = { '30 minutos': 1800, '1 hora': 3600, '2 horas': 7200, '3 horas': 10800 }[tiempoDisponible];
 
     const diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-    const diasEntrenamientoOrdenados = diasSemana.filter((dia) =>
-      diasEntrenamiento.map((d) => d.toLowerCase()).includes(dia)
-    );
+    const diasEntrenamientoOrdenados = diasSemana.filter(dia => diasEntrenamiento.map(d => d.toLowerCase()).includes(dia));
 
-    // ✅ Insertar rutina y obtener el ID de forma segura
-    const [rutinaResult] = await connection.query(
+    await connection.query(
       `INSERT INTO rutinas (usuario_creador_id, nombre, objetivo, nivel) VALUES (?, ?, ?, ?)`,
       [usuarioCreadorId, nombreRutina, objetivo, nivel]
     );
-    const rutinaId = rutinaResult.insertId;
-    console.log(`✅ Rutina creada con ID: ${rutinaId}`);
+
+    const rutinaId = (await connection.query(`SELECT LAST_INSERT_ID() AS id`))[0][0].id;
 
     for (let i = 0; i < diasEntrenamientoOrdenados.length; i++) {
       const diaNombre = diasEntrenamientoOrdenados[i];
@@ -1425,7 +1408,6 @@ export async function insertarRutinaEnBaseDeDatos(
         [rutinaId, diaNombre, JSON.stringify(musculosDelDia)]
       );
       const diaId = diaResult.insertId;
-      console.log(`✅ Día insertado: ${diaNombre} (ID: ${diaId})`);
 
       const dia = distribucionEjercicios[i];
       const { series, repeticiones } = volumenPorObjetivoYNivel[objetivo][nivel];
@@ -1438,8 +1420,8 @@ export async function insertarRutinaEnBaseDeDatos(
         musculo,
         partes: Object.entries(partes).map(([parte, cantidad]) => ({
           parte,
-          cantidadRestante: cantidad,
-        })),
+          cantidadRestante: cantidad
+        }))
       }));
 
       let asignacionPendiente = true;
@@ -1462,38 +1444,35 @@ export async function insertarRutinaEnBaseDeDatos(
               const parte = parteInfo.parte;
 
               const descansoMusculo = descansoPorMusculo[musculo] || 60;
-              const dificultadQuery =
-                nivel === 'principiante'
-                  ? "AND dificultad = 'principiante'"
-                  : nivel === 'intermedio'
-                  ? "AND (dificultad = 'principiante' OR dificultad = 'intermedio')"
-                  : '';
-
-              const restriccionesConditions = restricciones.length
-                ? restricciones.map(() => 'AND restricciones NOT LIKE ?').join(' ')
+              const dificultadQuery = nivel === 'principiante'
+                ? "AND dificultad = 'principiante'"
+                : nivel === 'intermedio'
+                ? "AND (dificultad = 'principiante' OR dificultad = 'intermedio')"
                 : '';
-              const restriccionesValues = restricciones.map((r) => `%${r}%`);
 
-              const query = `
-                SELECT id FROM ejercicios
-                WHERE musculo = ? AND parte_musculo = ?
-                ${dificultadQuery}
-                ${restriccionesConditions}
-                AND lugar = ?
-                LIMIT 600
-              `;
+              const restriccionesFilter = restricciones.length
+                ? restricciones.map(() => 'restricciones NOT LIKE ?').join(' AND ')
+                : '';
+              const restriccionesValues = restricciones.map(r => `%${r}%`);
 
-              const queryParams = [musculo, parte, ...restriccionesValues, lugarEntrenamiento];
-              const [ejercicios] = await connection.query(query, queryParams);
+              const [ejercicios] = await connection.query(
+                `SELECT id FROM ejercicios 
+                 WHERE musculo = ? AND parte_musculo = ? 
+                 ${dificultadQuery} 
+                 ${restriccionesFilter ? `AND ${restriccionesFilter}` : ''}
+                 AND lugar = ?
+                 LIMIT 600`,
+                [musculo, parte, ...restriccionesValues, lugarEntrenamiento]
+              );
 
               if (ejercicios.length === 0) continue;
 
               const ejercicioId = ejercicios[Math.floor(Math.random() * ejercicios.length)].id;
-              const [ejercicioAsignadoResult] = await connection.query(
+              await connection.query(
                 `INSERT INTO ejercicios_asignados (dia_id, ejercicio_id, descanso) VALUES (?, ?, ?)`,
                 [diaId, ejercicioId, descansoMusculo]
               );
-              const ejercicioAsignadoId = ejercicioAsignadoResult.insertId;
+              const ejercicioAsignadoId = (await connection.query(`SELECT LAST_INSERT_ID() AS id`))[0][0].id;
 
               for (let k = 0; k < series; k++) {
                 await connection.query(
@@ -1516,12 +1495,10 @@ export async function insertarRutinaEnBaseDeDatos(
     await connection.query(`UPDATE usuarios SET rutina_id = ? WHERE id = ?`, [rutinaId, usuarioCreadorId]);
     await connection.commit();
     connection.release();
-    console.log('✅ Rutina y asignaciones creadas con éxito.');
     return { success: true, rutinaId };
   } catch (error) {
     await connection.rollback();
     connection.release();
-    console.error('❌ Error al insertar rutina:', error);
     return { success: false, message: error.message };
   }
 }
