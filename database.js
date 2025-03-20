@@ -1290,58 +1290,6 @@ async function reemplazarEjercicio(rutinaId, ejercicioActualId, nuevoEjercicioId
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export async function insertarRutinaEnBaseDeDatos(
   usuarioCreadorId,
   nombreRutina,
@@ -1502,19 +1450,6 @@ export async function insertarRutinaEnBaseDeDatos(
     return { success: false, message: error.message };
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntrenamiento, objetivoCliente) {
   const proporcionesPartes = {
