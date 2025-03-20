@@ -1472,7 +1472,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
 
   const gruposMuscularesPorObjetivo = {
     'subir peso': {
-      1: [['fullbody']],
+      1: [['pecho', 'espalda', 'pierna']],
       2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
       3: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo']],
       4: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna'], ['hombro']],
@@ -1481,7 +1481,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['hombro']]
     },
     'bajar peso': {
-      1: [['fullbody']],
+      1: [['pecho', 'espalda', 'pierna']],
       2: [['pierna', 'core'], ['pecho', 'espalda']],
       3: [['pierna', 'gluteo', 'core'], ['espalda', 'biceps'], ['pecho', 'triceps']],
       4: [['pierna', 'gluteo'], ['espalda', 'core'], ['pecho', 'triceps'], ['fullbody']],
@@ -1490,7 +1490,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['fullbody'], ['fullbody'], ['pierna'], ['espalda'], ['pecho'], ['core'], ['cardio']]
     },
     'definir': {
-      1: [['fullbody']],
+      1: [['pecho', 'espalda', 'pierna']],
       2: [['fullbody'], ['fullbody']],
       3: [['fullbody'], ['fullbody'], ['fullbody']],
       4: [['pierna'], ['pecho', 'triceps'], ['espalda', 'biceps'], ['core']],
@@ -1499,7 +1499,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['fullbody'], ['pierna'], ['pecho'], ['espalda'], ['hombro'], ['core'], ['fullbody']]
     },
     'mantener peso': {
-      1: [['fullbody']],
+      1: [['pecho', 'espalda', 'pierna']],
       2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
       3: [['pecho', 'espalda'], ['pierna', 'gluteo'], ['core', 'hombro']],
       4: [['pecho'], ['espalda'], ['pierna'], ['core']],
@@ -1508,7 +1508,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['core']]
     },
     'mejorar resistencia': {
-      1: [['fullbody']],
+      1: [['pecho', 'espalda', 'pierna']],
       2: [['fullbody'], ['fullbody']],
       3: [['fullbody'], ['fullbody'], ['fullbody']],
       4: [['fullbody'], ['fullbody'], ['fullbody'], ['core']],
