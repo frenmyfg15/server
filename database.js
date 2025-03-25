@@ -752,38 +752,43 @@ const comprobarRutinaCompletada = async (usuario_id, fecha) => {
 };
 
 //Función para obtener todos los ejercicios pasado unos parametros
-export async function obtenerEjerciciosFiltrados(parte_musculo, tipo = null, dificultad = null) {
+export async function obtenerEjerciciosFiltrados(parte_musculo = null, tipo = null, dificultad = null) {
   try {
     let query = `
-          SELECT 
-              e.id, 
-              e.nombre, 
-              e.descripcion, 
-              e.musculo, 
-              e.tipo, 
-              e.parte_musculo, 
-              e.imagen, 
-              e.video, 
-              e.dificultad, 
-              e.calorias_por_set 
-          FROM ejercicios e
-          WHERE e.parte_musculo = ?`;
+      SELECT 
+        e.id, 
+        e.nombre, 
+        e.descripcion, 
+        e.musculo, 
+        e.tipo, 
+        e.parte_musculo, 
+        e.imagen, 
+        e.video, 
+        e.dificultad, 
+        e.calorias_por_set 
+      FROM ejercicios e
+      WHERE 1 = 1`; // Empieza con una condición siempre verdadera para facilitar concatenaciones
 
-    const params = [parte_musculo];
+    const params = [];
 
-    // Agregar filtro por `tipo` si se proporciona
+    // Filtro dinámico por parte_musculo
+    if (parte_musculo) {
+      query += " AND e.parte_musculo = ?";
+      params.push(parte_musculo);
+    }
+
     if (tipo) {
       query += " AND e.tipo = ?";
       params.push(tipo);
     }
 
-    // Agregar filtro por `dificultad` si se proporciona
     if (dificultad) {
       query += " AND e.dificultad = ?";
       params.push(dificultad);
     }
 
-    // Ejecutar la consulta
+    query += " ORDER BY e.nombre ASC"; // Opcional: ordenar alfabéticamente
+
     const [rows] = await pool.query(query, params);
 
     return {
@@ -801,6 +806,7 @@ export async function obtenerEjerciciosFiltrados(parte_musculo, tipo = null, dif
     };
   }
 }
+
 
 
 
@@ -1290,6 +1296,58 @@ async function reemplazarEjercicio(rutinaId, ejercicioActualId, nuevoEjercicioId
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 export async function insertarRutinaEnBaseDeDatos(
   usuarioCreadorId,
   nombreRutina,
@@ -1306,47 +1364,64 @@ export async function insertarRutinaEnBaseDeDatos(
     await connection.beginTransaction();
 
     const volumenPorObjetivoYNivel = {
-      'subir peso': { 
-        principiante: { series: 3, repeticiones: 8 }, 
-        intermedio: { series: 4, repeticiones: 10 }, 
-        avanzado: { series: 4, repeticiones: 12 } 
+      'subir peso': {
+        principiante: { series: 3, repeticiones: 8 },
+        intermedio: { series: 4, repeticiones: 10 },
+        avanzado: { series: 4, repeticiones: 12 },
       },
-      'bajar peso': { 
-        principiante: { series: 3, repeticiones: 12 }, 
-        intermedio: { series: 4, repeticiones: 12 }, 
-        avanzado: { series: 4, repeticiones: 15 } 
+      'bajar peso': {
+        principiante: { series: 3, repeticiones: 12 },
+        intermedio: { series: 4, repeticiones: 12 },
+        avanzado: { series: 4, repeticiones: 15 },
       },
-      'definir': { 
-        principiante: { series: 3, repeticiones: 12 }, 
-        intermedio: { series: 3, repeticiones: 15 }, 
-        avanzado: { series: 4, repeticiones: 15 } 
+      definir: {
+        principiante: { series: 3, repeticiones: 12 },
+        intermedio: { series: 3, repeticiones: 15 },
+        avanzado: { series: 4, repeticiones: 15 },
       },
-      'mantener peso': { 
-        principiante: { series: 3, repeticiones: 10 }, 
-        intermedio: { series: 3, repeticiones: 12 }, 
-        avanzado: { series: 4, repeticiones: 12 } 
+      'mantener peso': {
+        principiante: { series: 3, repeticiones: 10 },
+        intermedio: { series: 3, repeticiones: 12 },
+        avanzado: { series: 4, repeticiones: 12 },
       },
-      'mejorar resistencia': { 
-        principiante: { series: 2, repeticiones: 15 }, 
-        intermedio: { series: 3, repeticiones: 15 }, 
-        avanzado: { series: 4, repeticiones: 15 } 
-      }
+      'mejorar resistencia': {
+        principiante: { series: 2, repeticiones: 15 },
+        intermedio: { series: 3, repeticiones: 15 },
+        avanzado: { series: 4, repeticiones: 15 },
+      },
     };
-    
+
     const maxEjerciciosPorNivel = { principiante: 4, intermedio: 6, avanzado: 8 };
-    const descansoPorMusculo = { pierna: 120, pecho: 90, espalda: 90, gluteo: 120, biceps: 60, triceps: 60, hombro: 60, core: 30 };
+    const descansoPorMusculo = {
+      pierna: 120,
+      pecho: 90,
+      espalda: 90,
+      gluteo: 120,
+      biceps: 60,
+      triceps: 60,
+      hombro: 60,
+      core: 30,
+    };
     const tiempoPorSerieSegundos = 30;
-    const tiempoDisponibleSegundos = { '30 minutos': 1800, '1 hora': 3600, '2 horas': 7200, '3 horas': 10800 }[tiempoDisponible];
+    const tiempoDisponibleSegundos = {
+      '30 minutos': 1800,
+      '1 hora': 3600,
+      '2 horas': 7200,
+      '3 horas': 10800,
+    }[tiempoDisponible];
 
     const diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-    const diasEntrenamientoOrdenados = diasSemana.filter(dia => diasEntrenamiento.map(d => d.toLowerCase()).includes(dia));
+    const diasEntrenamientoOrdenados = diasSemana.filter((dia) =>
+      diasEntrenamiento.map((d) => d.toLowerCase()).includes(dia)
+    );
 
-    await connection.query(
+    // ✅ Insertar rutina y obtener el ID de forma segura
+    const [rutinaResult] = await connection.query(
       `INSERT INTO rutinas (usuario_creador_id, nombre, objetivo, nivel) VALUES (?, ?, ?, ?)`,
       [usuarioCreadorId, nombreRutina, objetivo, nivel]
     );
-
-    const rutinaId = (await connection.query(`SELECT LAST_INSERT_ID() AS id`))[0][0].id;
+    const rutinaId = rutinaResult.insertId;
+    console.log(`✅ Rutina creada con ID: ${rutinaId}`);
 
     for (let i = 0; i < diasEntrenamientoOrdenados.length; i++) {
       const diaNombre = diasEntrenamientoOrdenados[i];
@@ -1356,6 +1431,7 @@ export async function insertarRutinaEnBaseDeDatos(
         [rutinaId, diaNombre, JSON.stringify(musculosDelDia)]
       );
       const diaId = diaResult.insertId;
+      console.log(`✅ Día insertado: ${diaNombre} (ID: ${diaId})`);
 
       const dia = distribucionEjercicios[i];
       const { series, repeticiones } = volumenPorObjetivoYNivel[objetivo][nivel];
@@ -1368,8 +1444,8 @@ export async function insertarRutinaEnBaseDeDatos(
         musculo,
         partes: Object.entries(partes).map(([parte, cantidad]) => ({
           parte,
-          cantidadRestante: cantidad
-        }))
+          cantidadRestante: cantidad,
+        })),
       }));
 
       let asignacionPendiente = true;
@@ -1392,35 +1468,38 @@ export async function insertarRutinaEnBaseDeDatos(
               const parte = parteInfo.parte;
 
               const descansoMusculo = descansoPorMusculo[musculo] || 60;
-              const dificultadQuery = nivel === 'principiante'
-                ? "AND dificultad = 'principiante'"
-                : nivel === 'intermedio'
-                ? "AND (dificultad = 'principiante' OR dificultad = 'intermedio')"
-                : '';
+              const dificultadQuery =
+                nivel === 'principiante'
+                  ? "AND dificultad = 'principiante'"
+                  : nivel === 'intermedio'
+                  ? "AND (dificultad = 'principiante' OR dificultad = 'intermedio')"
+                  : '';
 
-              const restriccionesFilter = restricciones.length
-                ? restricciones.map(() => 'restricciones NOT LIKE ?').join(' AND ')
+              const restriccionesConditions = restricciones.length
+                ? restricciones.map(() => 'AND restricciones NOT LIKE ?').join(' ')
                 : '';
-              const restriccionesValues = restricciones.map(r => `%${r}%`);
+              const restriccionesValues = restricciones.map((r) => `%${r}%`);
 
-              const [ejercicios] = await connection.query(
-                `SELECT id FROM ejercicios 
-                 WHERE musculo = ? AND parte_musculo = ? 
-                 ${dificultadQuery} 
-                 ${restriccionesFilter ? `AND ${restriccionesFilter}` : ''}
-                 AND lugar = ?
-                 LIMIT 600`,
-                [musculo, parte, ...restriccionesValues, lugarEntrenamiento]
-              );
+              const query = `
+                SELECT id FROM ejercicios
+                WHERE musculo = ? AND parte_musculo = ?
+                ${dificultadQuery}
+                ${restriccionesConditions}
+                AND lugar = ?
+                LIMIT 600
+              `;
+
+              const queryParams = [musculo, parte, ...restriccionesValues, lugarEntrenamiento];
+              const [ejercicios] = await connection.query(query, queryParams);
 
               if (ejercicios.length === 0) continue;
 
               const ejercicioId = ejercicios[Math.floor(Math.random() * ejercicios.length)].id;
-              await connection.query(
+              const [ejercicioAsignadoResult] = await connection.query(
                 `INSERT INTO ejercicios_asignados (dia_id, ejercicio_id, descanso) VALUES (?, ?, ?)`,
                 [diaId, ejercicioId, descansoMusculo]
               );
-              const ejercicioAsignadoId = (await connection.query(`SELECT LAST_INSERT_ID() AS id`))[0][0].id;
+              const ejercicioAsignadoId = ejercicioAsignadoResult.insertId;
 
               for (let k = 0; k < series; k++) {
                 await connection.query(
@@ -1443,13 +1522,28 @@ export async function insertarRutinaEnBaseDeDatos(
     await connection.query(`UPDATE usuarios SET rutina_id = ? WHERE id = ?`, [rutinaId, usuarioCreadorId]);
     await connection.commit();
     connection.release();
+    console.log('✅ Rutina y asignaciones creadas con éxito.');
     return { success: true, rutinaId };
   } catch (error) {
     await connection.rollback();
     connection.release();
+    console.error('❌ Error al insertar rutina:', error);
     return { success: false, message: error.message };
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntrenamiento, objetivoCliente) {
   const proporcionesPartes = {
@@ -1472,7 +1566,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
 
   const gruposMuscularesPorObjetivo = {
     'subir peso': {
-      1: [['pecho', 'espalda', 'pierna']],
+      1: [['fullbody']],
       2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
       3: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo']],
       4: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna'], ['hombro']],
@@ -1481,7 +1575,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['hombro']]
     },
     'bajar peso': {
-      1: [['pecho', 'espalda', 'pierna']],
+      1: [['fullbody']],
       2: [['pierna', 'core'], ['pecho', 'espalda']],
       3: [['pierna', 'gluteo', 'core'], ['espalda', 'biceps'], ['pecho', 'triceps']],
       4: [['pierna', 'gluteo'], ['espalda', 'core'], ['pecho', 'triceps'], ['fullbody']],
@@ -1490,7 +1584,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['fullbody'], ['fullbody'], ['pierna'], ['espalda'], ['pecho'], ['core'], ['cardio']]
     },
     'definir': {
-      1: [['pecho', 'espalda', 'pierna']],
+      1: [['fullbody']],
       2: [['fullbody'], ['fullbody']],
       3: [['fullbody'], ['fullbody'], ['fullbody']],
       4: [['pierna'], ['pecho', 'triceps'], ['espalda', 'biceps'], ['core']],
@@ -1499,7 +1593,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['fullbody'], ['pierna'], ['pecho'], ['espalda'], ['hombro'], ['core'], ['fullbody']]
     },
     'mantener peso': {
-      1: [['pecho', 'espalda', 'pierna']],
+      1: [['fullbody']],
       2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
       3: [['pecho', 'espalda'], ['pierna', 'gluteo'], ['core', 'hombro']],
       4: [['pecho'], ['espalda'], ['pierna'], ['core']],
@@ -1508,7 +1602,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['core']]
     },
     'mejorar resistencia': {
-      1: [['pecho', 'espalda', 'pierna']],
+      1: [['fullbody']],
       2: [['fullbody'], ['fullbody']],
       3: [['fullbody'], ['fullbody'], ['fullbody']],
       4: [['fullbody'], ['fullbody'], ['fullbody'], ['core']],
