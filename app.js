@@ -5,7 +5,6 @@ import sgMail from '@sendgrid/mail';
 
 const app = express();
 app.use(express.json());
-console
 dotenv.config();
 
 // Configurar SendGrid
@@ -353,7 +352,7 @@ app.post('/series-estadistica', async (req, res) => {
     const series = await databaseFunctions.obtenerEstadisticaSeries(usuario_id, ejercicio_id, fecha || null);
 
     if (series.length === 0) {
-      return res.status(404).json({ mensaje: "No se encontraron series para los datos proporcionados" });
+      //return res.status(404).json({ mensaje: "No se encontraron series para los datos proporcionados" });
     }
 
     res.json(series);
@@ -636,12 +635,13 @@ app.post('/rutinas', async (req, res) => {
 app.delete('/rutina/:rutinaId', async (req, res) => {
   try {
     const { rutinaId } = req.params;
+    const usuarioId = req.query.usuarioId;
 
-    if (!rutinaId) {
-      return res.status(400).json({ error: "El rutinaId es obligatorio" });
+    if (!rutinaId || !usuarioId) {
+      return res.status(400).json({ error: "Se requieren rutinaId y usuarioId" });
     }
 
-    const resultado = await databaseFunctions.eliminarRutina(rutinaId);
+    const resultado = await databaseFunctions.eliminarRutina(parseInt(rutinaId), parseInt(usuarioId));
 
     if (!resultado.success) {
       return res.status(404).json({ message: resultado.message });
@@ -649,9 +649,11 @@ app.delete('/rutina/:rutinaId', async (req, res) => {
 
     res.json(resultado);
   } catch (error) {
+    console.error('❌ Error al eliminar la rutina:', error);
     res.status(500).json({ error: 'Error al eliminar la rutina', details: error.message });
   }
 });
+
 
 // 📌 PUT: Actualizar rutina_id de un usuario
 app.put('/usuario/rutina', async (req, res) => {
@@ -685,6 +687,265 @@ app.put('/remplazar/:rutinaId/ejercicios/:ejercicioAsignadoId', async (req, res)
     res.status(500).json({ error: error.message });
   }
 });
+
+
+
+
+//-----------------------------------Desde aquí empizan los nuevos Endpints para la actualizacion que implementa un sistema de amistades-------------------------------
+//Endpoint para guardar una publicación
+app.post('/publicaciones', async (req, res) => {
+  try {
+    const { usuario_id, contenido, imagen_url, video_url } = req.body;
+
+    if (!usuario_id || (!contenido && !imagen_url && !video_url)) {
+      return res.status(400).json({ error: 'Datos insuficientes' });
+    }
+
+    const publicacionId = await databaseFunctions.crearPublicacion({
+      usuario_id,
+      contenido,
+      imagen_url,
+      video_url
+    });
+
+    res.status(201).json({ mensaje: 'Publicación creada', id: publicacionId });
+  } catch (error) {
+    console.error('Error al crear publicación:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+//Endpoint para obtener las publicaciones
+app.get('/publicaciones/:usuario_id', async (req, res) => {
+  try {
+    const usuario_id = parseInt(req.params.usuario_id);
+
+    if (isNaN(usuario_id)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    const publicaciones = await databaseFunctions.obtenerPublicaciones(usuario_id);
+
+    res.status(200).json(publicaciones);
+  } catch (error) {
+    console.error('Error al obtener publicaciones:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+//Endpoint para dar o retirar like
+app.post('/publicaciones/like', async (req, res) => {
+  const { usuario_id, publicacion_id } = req.body;
+
+  if (!usuario_id || !publicacion_id) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+
+  try {
+    const result = await databaseFunctions.toggleLike({ usuario_id, publicacion_id });
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error en like:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+//Endpoint para crear un comentario
+app.post('/publicaciones/comentario', async (req, res) => {
+  const { usuario_id, publicacion_id, contenido } = req.body;
+
+  if (!usuario_id || !publicacion_id || !contenido?.trim()) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+
+  try {
+    const idComentario = await databaseFunctions.crearComentario({
+      usuario_id,
+      publicacion_id,
+      contenido
+    });
+
+    res.status(201).json({ mensaje: 'Comentario creado', id: idComentario });
+  } catch (error) {
+    console.error('Error al crear comentario:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+//Endpoint para obtner los comentarios
+app.get('/publicaciones/:id/comentarios', async (req, res) => {
+  const publicacion_id = parseInt(req.params.id);
+
+  if (isNaN(publicacion_id)) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  try {
+    const comentarios = await databaseFunctions.obtenerComentarios(publicacion_id);
+    res.status(200).json(comentarios);
+  } catch (error) {
+    console.error('Error al obtener comentarios:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+
+// Endpoint para crear solicitud de amistad
+app.post('/solicitudes', async (req, res) => {
+  const { solicitanteId, receptorId } = req.body;
+  await databaseFunctions.crearSolicitudAmistad(solicitanteId, receptorId);
+  res.status(201).json({ message: 'Solicitud enviada' });
+});
+
+
+// Obtener solicitudes recibidas
+app.get('/solicitudes/:usuarioId', async (req, res) => {
+  const { usuarioId } = req.params;
+  const solicitudes = await databaseFunctions.obtenerSolicitudesRecibidas(usuarioId);
+  res.json(solicitudes);
+});
+
+// Responder a solicitud de amistad
+app.post('/solicitudes/responder', async (req, res) => {
+  const { solicitudId, estado } = req.body;
+  await databaseFunctions.responderSolicitud(solicitudId, estado);
+  res.json({ message: `Solicitud ${estado}` });
+});
+
+// Buscar usuarios
+app.get('/usuarios/buscar', async (req, res) => {
+  const { query, userId } = req.query;
+
+  if (!query || isNaN(userId)) {
+    return res.status(400).json({ error: 'Parámetros inválidos' });
+  }
+
+  const resultados = await databaseFunctions.buscarUsuarios(query, parseInt(userId));
+  res.json(resultados);
+});
+
+// Obtener rutinas compartidas recibidas
+app.get('/rutinas/compartidas/:usuarioId', async (req, res) => {
+  const { usuarioId } = req.params;
+  const rutinas = await databaseFunctions.obtenerRutinasCompartidas(usuarioId);
+  res.json(rutinas);
+});
+
+// Responder rutina compartida
+app.post('/rutinas/compartida/responder', async (req, res) => {
+  const { compartidaId, estado } = req.body;
+  try {
+    await databaseFunctions.responderRutinaCompartida(compartidaId, estado);
+    res.status(200).json({ message: 'Rutina respondida correctamente' });
+  } catch (error) {
+    console.error('Error al responder rutina compartida:', error);
+    res.status(500).json({ error: 'Error al responder rutina compartida' });
+  }
+});
+
+
+
+// Obtener notificaciones
+app.get("/notificaciones/:usuarioId", async (req, res) => {
+  const { usuarioId } = req.params;
+  
+  try {
+    const notificaciones = await databaseFunctions.obtenerNotificaciones(usuarioId);
+
+    // Filter out accepted/rejected shared routines
+    const notificacionesFiltradas = notificaciones.map(notif => {
+      if (notif.tipo === 'rutina_compartida' && ['aceptada', 'rechazada'].includes(notif.estado_rutina_compartida)) {
+        // Hide action buttons for accepted/rejected shared routine notifications
+        return { ...notif, estado_rutina_compartida: 'procesada' };
+      }
+      return notif;
+    });
+
+    console.log(notificacionesFiltradas);
+
+    res.json(notificacionesFiltradas);
+  } catch (err) {
+    res.status(500).json({ message: "Error al cargar las notificaciones", details: err.message });
+  }
+});
+
+
+// Marcar notificación como leída
+app.post('/notificaciones/leida', async (req, res) => {
+  const { notificacionId } = req.body;
+  await databaseFunctions.marcarNotificacionLeida(notificacionId);
+  res.json({ message: 'Notificación marcada como leída' });
+});
+
+//Endpoint para natificaiones no leidas
+app.get('/notificaciones/:usuarioId/noleidas', async (req, res) => {
+  const { usuarioId } = req.params;
+
+  try {
+    const total = await databaseFunctions.contarNotificacionesNoLeidas(usuarioId);
+    res.json({ total });
+  } catch (error) {
+    console.error('Error al contar notificaciones no leídas:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+//Endpoint para modificar la foto del perfil
+app.put('/usuarios/:id/imagen-perfil', async (req, res) => {
+  const { id } = req.params;
+  const { imagen_url } = req.body;
+  console.log('desde el servidor');
+
+  if (!imagen_url) {
+    return res.status(400).json({ error: 'URL de imagen faltante' });
+  }
+
+  await databaseFunctions.actualizarImagenPerfil(id, imagen_url);
+  res.json({ message: 'Imagen de perfil actualizada' });
+});
+
+//Endpoint para obtener lista de amigos
+app.get('/amigos/:id', async (req, res) => {
+  try {
+    const amigos = await databaseFunctions.obtenerAmigos(req.params.id);
+    res.json(amigos);
+  } catch (error) {
+    console.error('Error al obtener amigos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+//Endpoint para eliminar amistad
+app.post('/amigos/eliminar', async (req, res) => {
+  const { usuarioId, amigoId } = req.body;
+  if (!usuarioId || !amigoId) return res.status(400).json({ error: 'Datos incompletos' });
+
+  try {
+    await databaseFunctions.eliminarAmistad(usuarioId, amigoId);
+    res.status(200).json({ mensaje: 'Amistad eliminada' });
+  } catch (error) {
+    console.error('Error al eliminar amigo:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+//Endpoint para compartir rutinas
+app.post('/rutinas/compartir-multiples', async (req, res) => {
+  const { usuario_id, usuario_destino_id, rutina_ids } = req.body;
+
+  try {
+    await databaseFunctions.compartirMultiplesRutinas(usuario_id, usuario_destino_id, rutina_ids);
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error('Error al compartir rutinas:', error);
+    res.status(500).json({ error: 'Error al compartir rutinas' });
+  }
+});
+
+
+
+
+
 
 // Configurar el servidor para escuchar en un puerto
 const PORT = process.env.PORT || 3000;

@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 dotenv.config();
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
-  port: process.env.MYSQL_PORT||3306, // 🔥 Agregar el puerto
+  port: process.env.MYSQL_PORT || 3306, // 🔥 Agregar el puerto
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
   database: process.env.MYSQL_DATABASE,
@@ -228,7 +228,8 @@ export async function validateUser(correo, contraseña) {
         token_confirmacion: user.token_confirmacion, // Agregado: Token para confirmar el registro
         suscripcion: user.suscripcion, // Agregado: Estado de la suscripción
         nivel: user.nivel,
-        experiencia: user.experiencia
+        experiencia: user.experiencia,
+        imagen_url: user.imagen_url
       }
     };
   } catch (error) {
@@ -238,7 +239,7 @@ export async function validateUser(correo, contraseña) {
 }
 export async function obtenerRutinaCompleta(rutinaId) {
   try {
-      const query = `
+    const query = `
           SELECT d.id AS dia_id, d.nombre_dia, d.musculos_dia, 
                  e.id AS ejercicio_id, e.nombre AS ejercicio_nombre, e.musculo, e.descripcion, e.tipo, e.dificultad
           FROM dias d
@@ -248,48 +249,48 @@ export async function obtenerRutinaCompleta(rutinaId) {
           ORDER BY d.id;
       `;
 
-      const [rows] = await pool.query(query, [rutinaId]);
+    const [rows] = await pool.query(query, [rutinaId]);
 
-      if (!rows.length) {
-          return { success: false, message: "No se encontraron días ni ejercicios para esta rutina" };
+    if (!rows.length) {
+      return { success: false, message: "No se encontraron días ni ejercicios para esta rutina" };
+    }
+
+    const rutina = {};
+    rows.forEach(row => {
+      // 🔹 Verificar si musculos_dia es NULL o tiene un formato incorrecto
+      let musculosDia = [];
+      if (row.musculos_dia) {
+        const musculosString = String(row.musculos_dia); // Convertir a cadena
+        musculosDia = musculosString.startsWith("[")
+          ? JSON.parse(musculosString)  // ✅ Es un JSON válido
+          : musculosString.split(","); // ✅ Convertir string separado por comas a array
       }
 
-      const rutina = {};
-      rows.forEach(row => {
-          // 🔹 Verificar si musculos_dia es NULL o tiene un formato incorrecto
-          let musculosDia = [];
-          if (row.musculos_dia) {
-              const musculosString = String(row.musculos_dia); // Convertir a cadena
-              musculosDia = musculosString.startsWith("[") 
-                  ? JSON.parse(musculosString)  // ✅ Es un JSON válido
-                  : musculosString.split(","); // ✅ Convertir string separado por comas a array
-          }
+      if (!rutina[row.nombre_dia]) {
+        rutina[row.nombre_dia] = {
+          nombre_dia: row.nombre_dia,
+          musculos_dia: musculosDia,
+          ejercicios: []
+        };
+      }
 
-          if (!rutina[row.nombre_dia]) {
-              rutina[row.nombre_dia] = {
-                  nombre_dia: row.nombre_dia,
-                  musculos_dia: musculosDia,
-                  ejercicios: []
-              };
-          }
+      if (row.ejercicio_id) {
+        rutina[row.nombre_dia].ejercicios.push({
+          id: row.ejercicio_id,
+          nombre: row.ejercicio_nombre,
+          musculo: row.musculo,
+          descripcion: row.descripcion,
+          tipo: row.tipo,
+          dificultad: row.dificultad
+        });
+      }
+    });
 
-          if (row.ejercicio_id) {
-              rutina[row.nombre_dia].ejercicios.push({
-                  id: row.ejercicio_id,
-                  nombre: row.ejercicio_nombre,
-                  musculo: row.musculo,
-                  descripcion: row.descripcion,
-                  tipo: row.tipo,
-                  dificultad: row.dificultad
-              });
-          }
-      });
-
-      return { success: true, rutina: Object.values(rutina) };
+    return { success: true, rutina: Object.values(rutina) };
 
   } catch (error) {
-      console.error("❌ Error al obtener la rutina completa:", error);
-      return { success: false, message: "Error interno del servidor" };
+    console.error("❌ Error al obtener la rutina completa:", error);
+    return { success: false, message: "Error interno del servidor" };
   }
 }
 
@@ -455,7 +456,8 @@ export async function obtenerInstrucciones(id_ejercicio) {
     const [rows] = await pool.query(query, [id_ejercicio]);
 
     // Si no se encuentran instrcucicones, retornar una respuesta adecuada
-    if (rows.length === 0) {;
+    if (rows.length === 0) {
+      ;
       return {
         success: false,
         message: 'No se encontraron instrcucicones para el ejercicio',
@@ -976,7 +978,7 @@ export async function actualizarContrasena(usuarioId, contrasenaActual, nuevaCon
   try {
     // Obtener la contraseña actual almacenada
     const [rows] = await pool.query(`SELECT contrasena FROM usuarios WHERE id = ?`, [usuarioId]);
-    
+
     if (rows.length === 0) {
       return { success: false, message: "Usuario no encontrado" };
     }
@@ -985,7 +987,7 @@ export async function actualizarContrasena(usuarioId, contrasenaActual, nuevaCon
 
     // Comparar la contraseña actual ingresada con la almacenada
     const esCorrecta = await bcrypt.compare(contrasenaActual, contrasenaAlmacenada);
-    
+
     if (!esCorrecta) {
       return { success: false, message: "La contraseña actual es incorrecta" };
     }
@@ -1034,8 +1036,8 @@ export async function actualizarDatosUsuario(usuarioId, datosActualizados) {
 //Función para obtener todas las estadísticas de un ejercicio
 export const getUserExerciseStats = async (usuario_id, ejercicio_id) => {
   try {
-      const [rows] = await pool.query(
-          `SELECT 
+    const [rows] = await pool.query(
+      `SELECT 
               f.fecha, 
               s.serie, 
               s.peso, 
@@ -1045,12 +1047,12 @@ export const getUserExerciseStats = async (usuario_id, ejercicio_id) => {
           JOIN series_estadistica s ON f.id = s.fecha_id
           WHERE e.usuario_id = ? AND e.ejercicio_id = ?
           ORDER BY f.fecha DESC, s.serie ASC`,
-          [usuario_id, ejercicio_id]
-      );
-      return rows;
+      [usuario_id, ejercicio_id]
+    );
+    return rows;
   } catch (error) {
-      console.error("Error obteniendo estadísticas:", error);
-      throw error;
+    console.error("Error obteniendo estadísticas:", error);
+    throw error;
   }
 };
 
@@ -1131,7 +1133,6 @@ async function crearRutina(nombre, descripcion, nivel, objetivo, usuario_id, eje
 async function obtenerRutinasConDias(usuarioId) {
   const connection = await pool.getConnection();
   try {
-    // Obtener todas las rutinas del usuario
     const [rutinas] = await connection.execute(`
       SELECT id AS rutina_id, nombre, descripcion, nivel, objetivo, fecha_creacion
       FROM rutinas
@@ -1149,16 +1150,15 @@ async function obtenerRutinasConDias(usuarioId) {
       return rutinas.map(rutina => ({ ...rutina, dias: [] }));
     }
 
-    // Obtener los nombres de los días que tienen ejercicios asignados
+    const placeholders = rutinaIds.map(() => '?').join(',');
     const [dias] = await connection.execute(`
       SELECT DISTINCT d.rutina_id, d.nombre_dia
       FROM dias d
       JOIN ejercicios_asignados ea ON d.id = ea.dia_id
-      WHERE d.rutina_id IN (${rutinaIds.join(',')})
+      WHERE d.rutina_id IN (${placeholders})
       ORDER BY d.rutina_id, d.nombre_dia
-    `);
+    `, rutinaIds);
 
-    // Formatear los resultados
     const rutinasMap = {};
     rutinas.forEach(rutina => {
       rutinasMap[rutina.rutina_id] = {
@@ -1179,54 +1179,76 @@ async function obtenerRutinasConDias(usuarioId) {
     });
 
     return Object.values(rutinasMap);
-
+  } catch (error) {
+    console.error("❌ Error en obtenerRutinasConDias:", error);
+    throw error;
   } finally {
     connection.release();
   }
 }
 
+
 //Función para eliminar rutinas
-export async function eliminarRutina(rutinaId) {
+export async function eliminarRutina(rutinaId, usuarioId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
-    // 🔹 1. Eliminar series relacionadas con ejercicios asignados
-    await connection.execute(`
-      DELETE FROM series 
-      WHERE ejercicio_asignado_id IN (
-        SELECT id FROM ejercicios_asignados WHERE dia_id IN (
-          SELECT id FROM dias WHERE rutina_id = ?
-        )
-      )
-    `, [rutinaId]);
+    // 🔍 Verificar si el usuario es el creador de la rutina
+    const [rows] = await connection.query(
+      `SELECT usuario_creador_id FROM rutinas WHERE id = ?`,
+      [rutinaId]
+    );
 
-    // 🔹 2. Eliminar ejercicios asignados a los días de la rutina
-    await connection.execute(`
-      DELETE FROM ejercicios_asignados 
-      WHERE dia_id IN (
-        SELECT id FROM dias WHERE rutina_id = ?
-      )
-    `, [rutinaId]);
-
-    // 🔹 3. Eliminar los días de la rutina
-    await connection.execute(`
-      DELETE FROM dias 
-      WHERE rutina_id = ?
-    `, [rutinaId]);
-
-    // 🔹 4. Eliminar la rutina
-    const [result] = await connection.execute(`
-      DELETE FROM rutinas 
-      WHERE id = ?
-    `, [rutinaId]);
-
-    if (result.affectedRows === 0) {
+    if (rows.length === 0) {
       throw new Error("La rutina no existe");
     }
 
+    const esCreador = rows[0].usuario_creador_id === usuarioId;
+
+    if (esCreador) {
+      // 🧨 Usuario es el creador → eliminar completamente la rutina
+
+      // 1. Eliminar series relacionadas
+      await connection.execute(`
+        DELETE FROM series 
+        WHERE ejercicio_asignado_id IN (
+          SELECT id FROM ejercicios_asignados WHERE dia_id IN (
+            SELECT id FROM dias WHERE rutina_id = ?
+          )
+        )
+      `, [rutinaId]);
+
+      // 2. Eliminar ejercicios asignados
+      await connection.execute(`
+        DELETE FROM ejercicios_asignados 
+        WHERE dia_id IN (
+          SELECT id FROM dias WHERE rutina_id = ?
+        )
+      `, [rutinaId]);
+
+      // 3. Eliminar los días
+      await connection.execute(`
+        DELETE FROM dias 
+        WHERE rutina_id = ?
+      `, [rutinaId]);
+
+      // 4. Eliminar la rutina
+      await connection.execute(`
+        DELETE FROM rutinas 
+        WHERE id = ?
+      `, [rutinaId]);
+
+    } else {
+      // 👥 No es el creador → eliminar de rutinas compartidas
+      await connection.execute(`
+        DELETE FROM rutinas_compartidas
+        WHERE rutina_id = ? AND usuario_destino_id = ?
+      `, [rutinaId, usuarioId]);
+    }
+
     await connection.commit();
-    return { success: true, message: "Rutina eliminada exitosamente" };
+    return { success: true, message: "Rutina eliminada correctamente" };
 
   } catch (error) {
     await connection.rollback();
@@ -1236,6 +1258,7 @@ export async function eliminarRutina(rutinaId) {
     connection.release();
   }
 }
+
 
 //Función para acutalizar la rutina de un usuario
 export async function actualizarRutinaUsuario(usuarioId, nuevaRutinaId) {
@@ -1295,6 +1318,11 @@ async function reemplazarEjercicio(rutinaId, ejercicioActualId, nuevoEjercicioId
     connection.release();
   }
 }
+
+
+
+
+
 
 
 
@@ -1472,8 +1500,8 @@ export async function insertarRutinaEnBaseDeDatos(
                 nivel === 'principiante'
                   ? "AND dificultad = 'principiante'"
                   : nivel === 'intermedio'
-                  ? "AND (dificultad = 'principiante' OR dificultad = 'intermedio')"
-                  : '';
+                    ? "AND (dificultad = 'principiante' OR dificultad = 'intermedio')"
+                    : '';
 
               const restriccionesConditions = restricciones.length
                 ? restricciones.map(() => 'AND restricciones NOT LIKE ?').join(' ')
@@ -1656,13 +1684,413 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
         }
       }
     }
-    
+
 
     ejerciciosPorDia.push(ejerciciosAsignados);
   });
 
   return ejerciciosPorDia;
 }
+
+
+
+
+
+
+//A partir de aquí se agregan las funciones de la nueva actualización
+
+//Función para guardar una publicación
+async function crearPublicacion({ usuario_id, contenido, imagen_url = null, video_url = null }) {
+  const [result] = await pool.query(
+    `INSERT INTO publicaciones (usuario_id, contenido, imagen_url, video_url)
+     VALUES (?, ?, ?, ?)`,
+    [usuario_id, contenido, imagen_url, video_url]
+  );
+
+  return result.insertId;
+}
+
+//Función para obtener las publicaciones
+async function obtenerPublicaciones(usuario_id) {
+  const [rows] = await pool.query(
+    `
+    SELECT 
+      p.id,
+      p.contenido,
+      p.imagen_url,
+      p.video_url,
+      p.fecha_creacion,
+      u.id AS usuario_id,
+      u.nombre,
+      u.apellido,
+      u.imagen_url AS imagen_usuario, -- 👈 agregar esto
+      (SELECT COUNT(*) FROM likes WHERE publicacion_id = p.id) AS likes,
+      (SELECT COUNT(*) FROM comentarios WHERE publicacion_id = p.id) AS comentarios,
+      EXISTS (
+        SELECT 1 FROM likes 
+        WHERE publicacion_id = p.id AND usuario_id = ?
+      ) AS liked
+    FROM publicaciones p
+    JOIN usuarios u ON u.id = p.usuario_id
+    WHERE 
+      p.usuario_id = ? 
+      OR p.usuario_id IN (
+        SELECT amigo_id FROM amigos WHERE usuario_id = ?
+        UNION
+        SELECT usuario_id FROM amigos WHERE amigo_id = ?
+      )
+    ORDER BY p.fecha_creacion DESC
+    `,
+    [usuario_id, usuario_id, usuario_id, usuario_id]
+  );
+
+
+  return rows;
+}
+
+// Crear notificación
+export const crearNotificacion = async (usuarioId, tipo, contenido, solicitudId = null, emisorId = null, rutinaCompId) => {
+  // Verificar si ya existe una notificación del mismo tipo para el mismo usuario y con los mismos parámetros
+  // Si es una notificación de tipo 'rutina_compartida', también verificamos el rutina_compartida_id
+  const queryParams = [usuarioId, tipo, solicitudId, emisorId, rutinaCompId];
+  let query = `
+    SELECT id FROM notificaciones 
+    WHERE usuario_id = ? AND tipo = ? 
+      AND solicitud_id = ? AND emisor_id = ?`;
+
+  // Si es una notificación de rutina compartida, verificamos el rutina_compartida_id
+  if (tipo === 'rutina_compartida' && rutinaCompId) {
+    query += ' AND rutina_compartida_id = ?';
+  }
+
+  const [existing] = await pool.query(query, queryParams);
+
+  if (existing.length > 0) {
+      // Si ya existe una notificación, no la creamos nuevamente
+      console.log('La notificación ya existe, no se creará una nueva');
+      return { success: false, message: 'Notificación ya existe' };
+  }
+
+  // Si no existe, insertamos la nueva notificación
+  await pool.query(
+    'INSERT INTO notificaciones (usuario_id, tipo, contenido, solicitud_id, emisor_id, rutina_compartida_id) VALUES (?, ?, ?, ?, ?, ?)',
+    [usuarioId, tipo, contenido, solicitudId, emisorId, rutinaCompId]
+  );
+
+  console.log('Notificación creada correctamente');
+  return { success: true, message: 'Notificación creada' };
+};
+
+
+//Función para dar y retirar like
+async function toggleLike({ usuario_id, publicacion_id }) {
+  const [existing] = await pool.query(
+    'SELECT id FROM likes WHERE usuario_id = ? AND publicacion_id = ?',
+    [usuario_id, publicacion_id]
+  );
+
+  if (existing.length > 0) {
+    // Quitar like
+    await pool.query('DELETE FROM likes WHERE usuario_id = ? AND publicacion_id = ?', [
+      usuario_id,
+      publicacion_id,
+    ]);
+    return { liked: false };
+  } else {
+    // Dar like
+    await pool.query('INSERT INTO likes (usuario_id, publicacion_id) VALUES (?, ?)', [
+      usuario_id,
+      publicacion_id,
+    ]);
+
+    // 🔔 Notificación al autor
+    const [[publicacion]] = await pool.query(
+      'SELECT usuario_id FROM publicaciones WHERE id = ?',
+      [publicacion_id]
+    );
+
+    if (publicacion.usuario_id !== usuario_id) {
+      const texto = 'le gustó tu publicación';
+      await crearNotificacion(publicacion.usuario_id, 'logro', texto, null, usuario_id);
+    }
+
+    return { liked: true };
+  }
+}
+
+
+//Función para crear un comentario
+async function crearComentario({ usuario_id, publicacion_id, contenido }) {
+  await pool.query(
+    'INSERT INTO comentarios (usuario_id, publicacion_id, contenido) VALUES (?, ?, ?)',
+    [usuario_id, publicacion_id, contenido]
+  );
+
+  // 🔔 Obtener autor de la publicación
+  const [[publicacion]] = await pool.query(
+    'SELECT usuario_id FROM publicaciones WHERE id = ?',
+    [publicacion_id]
+  );
+
+  // 🔔 Si no es un comentario a uno mismo
+  if (publicacion.usuario_id !== usuario_id) {
+    const texto = 'ha comentado en tu publicación';
+    await crearNotificacion(publicacion.usuario_id, 'mensaje', texto, null, usuario_id);
+  }
+}
+
+
+//Función para obtener un comentario
+async function obtenerComentarios(publicacion_id) {
+  const [rows] = await pool.query(
+    `
+    SELECT 
+      c.id, c.contenido, c.fecha_creacion,
+      u.nombre, u.apellido, u.imagen_url AS imagen_usuario
+    FROM comentarios c
+    JOIN usuarios u ON u.id = c.usuario_id
+    WHERE c.publicacion_id = ?
+    ORDER BY c.fecha_creacion ASC
+
+    `,
+    [publicacion_id]
+  );
+
+  return rows;
+}
+
+//Función para contar las notificaciones no leida
+export const contarNotificacionesNoLeidas = async (usuarioId) => {
+  const [rows] = await pool.query(
+    'SELECT COUNT(*) AS total FROM notificaciones WHERE usuario_id = ? AND leido = false',
+    [usuarioId]
+  );
+  return rows[0].total;
+};
+
+//Función para actualizar la imagen del usuario
+export const actualizarImagenPerfil = async (usuarioId, imagen_url) => {
+  await pool.query('UPDATE usuarios SET imagen_url = ? WHERE id = ?', [imagen_url, usuarioId]);
+};
+
+// Buscar usuarios
+export const buscarUsuarios = async (query, actualUserId) => {
+  const [rows] = await pool.query(
+    `
+    SELECT 
+      u.id, u.nombre, u.apellido, u.correo, u.imagen_url,
+
+      EXISTS (
+        SELECT 1 FROM amigos a 
+        WHERE (a.usuario_id = ? AND a.amigo_id = u.id)
+      ) AS es_amigo,
+
+      EXISTS (
+        SELECT 1 FROM solicitudes_amistad s 
+        WHERE s.usuario_solicitante_id = ? AND s.usuario_receptor_id = u.id AND s.estado = 'pendiente'
+      ) AS solicitud_enviada,
+
+      EXISTS (
+        SELECT 1 FROM solicitudes_amistad s 
+        WHERE s.usuario_solicitante_id = u.id AND s.usuario_receptor_id = ? AND s.estado = 'pendiente'
+      ) AS solicitud_recibida
+
+    FROM usuarios u
+    WHERE u.id != ? AND (
+      u.nombre LIKE ? OR u.apellido LIKE ? OR u.correo LIKE ?
+    )
+    `,
+    [
+      actualUserId,
+      actualUserId,
+      actualUserId,
+      actualUserId,
+      `%${query}%`,
+      `%${query}%`,
+      `%${query}%`,
+    ]
+  );
+
+  return rows;
+};
+
+
+// Crear solicitud de amistad
+export const crearSolicitudAmistad = async (solicitanteId, receptorId) => {
+  const [result] = await pool.query(
+    'INSERT INTO solicitudes_amistad (usuario_solicitante_id, usuario_receptor_id) VALUES (?, ?)',
+    [solicitanteId, receptorId]
+  );
+
+  const solicitudId = result.insertId;
+
+  // Notificación con emisor incluido
+  await crearNotificacion(
+    receptorId,
+    'solicitud_amistad',
+    'te ha enviado una solicitud de amistad.',
+    solicitudId,
+    solicitanteId
+  );
+};
+
+// Obtener solicitudes recibidas
+export const obtenerSolicitudesRecibidas = async (usuarioId) => {
+  const [rows] = await pool.query(
+    'SELECT * FROM solicitudes_amistad WHERE usuario_receptor_id = ? AND estado = "pendiente"',
+    [usuarioId]
+  );
+  return rows;
+};
+
+// Responder solicitud de amistad
+export const responderSolicitud = async (solicitudId, estado) => {
+  await pool.query(
+    'UPDATE solicitudes_amistad SET estado = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
+    [estado, solicitudId]
+  );
+
+  if (estado === 'aceptada') {
+    const [solicitud] = await pool.query('SELECT * FROM solicitudes_amistad WHERE id = ?', [solicitudId]);
+    const data = solicitud[0];
+    await pool.query('INSERT INTO amigos (usuario_id, amigo_id) VALUES (?, ?), (?, ?)', [
+      data.usuario_solicitante_id,
+      data.usuario_receptor_id,
+      data.usuario_receptor_id,
+      data.usuario_solicitante_id,
+    ]);
+    const contenido = `Tu solicitud de amistad fue aceptada`;
+    await crearNotificacion(data.usuario_solicitante_id, 'solicitud_amistad', contenido);
+  }
+};
+
+// Compartir las rutinas (múltiples rutinas)
+async function compartirMultiplesRutinas(usuarioId, destinoId, rutinaIds) {
+  const mensaje = 'Te ha compartido una rutina';
+
+  // Iteramos por cada rutina y la compartimos
+  for (const id of rutinaIds) {
+    // Insertamos la rutina compartida
+    const [result] = await pool.query(
+      'INSERT INTO rutinas_compartidas (rutina_id, usuario_id, usuario_destino_id, mensaje) VALUES (?, ?, ?, ?)',
+      [id, usuarioId, destinoId, mensaje]
+    );
+
+    // Recuperamos el id de la rutina compartida insertada
+    const rutinaCompId = result.insertId;
+    console.log(rutinaCompId)
+    console.log('Hola mundo');
+
+    // Crear la notificación para esta rutina compartida
+    await crearNotificacion(destinoId, 'rutina_compartida', mensaje, null, usuarioId, rutinaCompId);
+  }
+
+  console.log('Todas las rutinas compartidas y notificaciones creadas');
+}
+
+// Obtener rutinas compartidas
+export const obtenerRutinasCompartidas = async (usuarioId) => {
+  const [rows] = await pool.query(
+    `
+    SELECT rc.*, 
+           r.nombre AS nombre_rutina, 
+           r.descripcion, 
+           r.nivel, 
+           r.objetivo,
+           u.nombre AS remitente_nombre, 
+           u.apellido AS remitente_apellido
+    FROM rutinas_compartidas rc
+    JOIN rutinas r ON rc.rutina_id = r.id
+    JOIN usuarios u ON rc.usuario_id = u.id
+    WHERE rc.usuario_destino_id = ?
+    `,
+    [usuarioId]
+  );
+  return rows;
+};
+
+// Responder rutina compartida
+export const responderRutinaCompartida = async (compartidaId, estado) => {
+  await pool.query(
+    'UPDATE rutinas_compartidas SET estado = ?, fecha_respuesta = CURRENT_TIMESTAMP WHERE id = ?',
+    [estado, compartidaId]
+  );
+};
+
+
+// Obtener notificaciones
+export const obtenerNotificaciones = async (usuarioId) => {
+  const [rows] = await pool.query(
+    `SELECT 
+        n.*, 
+        s.estado AS estado_solicitud,
+        rc.estado AS estado_rutina_compartida,
+        rc.id AS rutina_compartida_id,
+        u.nombre AS remitente_nombre,
+        u.apellido AS remitente_apellido,
+        u.imagen_url AS remitente_imagen
+    FROM notificaciones n
+    LEFT JOIN solicitudes_amistad s 
+      ON n.tipo = 'solicitud_amistad' AND n.solicitud_id = s.id
+    LEFT JOIN rutinas_compartidas rc 
+      ON n.tipo = 'rutina_compartida' 
+      AND rc.id = n.rutina_compartida_id
+    LEFT JOIN usuarios u 
+      ON n.emisor_id = u.id
+    WHERE n.usuario_id = ?
+    ORDER BY n.fecha_creacion DESC`,
+    [usuarioId]
+  );
+
+  // Filtrar notificaciones de rutinas duplicadas (si ya fueron procesadas)
+  const notificacionesFiltradas = rows.reduce((acc, notif) => {
+    if (notif.tipo === 'rutina_compartida' && notif.estado_rutina_compartida !== 'pendiente') {
+      // Si la rutina ya está procesada, verificamos si ya existe una notificación de esa rutina
+      const duplicate = acc.some(existingNotif => existingNotif.rutina_compartida_id === notif.rutina_compartida_id);
+      if (!duplicate) acc.push(notif);
+    } else {
+      // Si no es rutina compartida o está pendiente, agregarla
+      acc.push(notif);
+    }
+    return acc;
+  }, []);
+
+  return notificacionesFiltradas;
+};
+
+// Marcar notificación como leída
+export const marcarNotificacionLeida = async (notificacionId) => {
+  await pool.query('UPDATE notificaciones SET leido = true WHERE id = ?', [notificacionId]);
+};
+
+// Obtener amigos del usuario
+export const obtenerAmigos = async (usuarioId) => {
+  const [rows] = await pool.query(
+    `
+    SELECT u.id, u.nombre, u.apellido, u.correo, u.imagen_url
+    FROM amigos a
+    JOIN usuarios u ON u.id = a.amigo_id
+    WHERE a.usuario_id = ?
+    `,
+    [usuarioId]
+  );
+  return rows;
+};
+
+// Eliminar amigo (de ambos lados)
+export const eliminarAmistad = async (usuarioId, amigoId) => {
+  await pool.query(
+    `
+    DELETE FROM amigos 
+    WHERE 
+      (usuario_id = ? AND amigo_id = ?) 
+      OR 
+      (usuario_id = ? AND amigo_id = ?)
+    `,
+    [usuarioId, amigoId, amigoId, usuarioId]
+  );
+};
+
 
 const databaseFunctions = {
   verificarCorreoTelefono,
@@ -1696,6 +2124,25 @@ const databaseFunctions = {
   obtenerRutinasConDias,
   eliminarRutina,
   actualizarRutinaUsuario,
-  reemplazarEjercicio
+  reemplazarEjercicio,
+  crearSolicitudAmistad,
+  obtenerSolicitudesRecibidas,
+  responderSolicitud,
+  buscarUsuarios,
+  obtenerRutinasCompartidas,
+  responderRutinaCompartida,
+  crearNotificacion,
+  obtenerNotificaciones,
+  marcarNotificacionLeida,
+  crearPublicacion,
+  obtenerPublicaciones,
+  toggleLike,
+  crearComentario,
+  obtenerComentarios,
+  contarNotificacionesNoLeidas,
+  actualizarImagenPerfil,
+  obtenerAmigos,
+  eliminarAmistad,
+  compartirMultiplesRutinas
 };
 export default databaseFunctions;
