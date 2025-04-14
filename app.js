@@ -864,26 +864,29 @@ app.post('/rutinas/compartida/responder', async (req, res) => {
 // Obtener notificaciones
 app.get("/notificaciones/:usuarioId", async (req, res) => {
   const { usuarioId } = req.params;
-  
+
   try {
     const notificaciones = await databaseFunctions.obtenerNotificaciones(usuarioId);
 
-    // Filter out accepted/rejected shared routines
+    // Filtrar notificaciones procesadas
     const notificacionesFiltradas = notificaciones.map(notif => {
       if (notif.tipo === 'rutina_compartida' && ['aceptada', 'rechazada'].includes(notif.estado_rutina_compartida)) {
-        // Hide action buttons for accepted/rejected shared routine notifications
         return { ...notif, estado_rutina_compartida: 'procesada' };
       }
       return notif;
     });
 
-    console.log(notificacionesFiltradas);
-
     res.json(notificacionesFiltradas);
   } catch (err) {
-    res.status(500).json({ message: "Error al cargar las notificaciones", details: err.message });
+    console.error('Error al obtener las notificaciones:', err);  // Log detallado del error
+    res.status(500).json({
+      message: "Error al cargar las notificaciones",
+      details: err.message,
+      stack: err.stack  // Agregar el stacktrace para obtener más detalles
+    });
   }
 });
+
 
 
 // Marcar notificación como leída
