@@ -1,11 +1,27 @@
 import express from 'express';
+import cors from 'cors'; // Importa el paquete cors
 import databaseFunctions from './database.js';
 import dotenv from 'dotenv';
 import sgMail from '@sendgrid/mail';
 
 const app = express();
-app.use(express.json());
+
+// Cargar las variables de entorno
 dotenv.config();
+
+// Configuración de CORS
+const corsOptions = {
+  origin: 'https://drimo-fit-app-production.up.railway.app',
+  methods: ['GET', 'POST'], // Métodos HTTP permitidos
+  allowedHeaders: ['Content-Type', 'Authorization'], // Cabeceras permitidas
+  credentials: true, // Permite enviar cookies de autenticación o credenciales
+};
+
+// Usa el middleware CORS en todas las rutas
+app.use(cors(corsOptions));
+
+// Middleware para analizar JSON
+app.use(express.json());
 
 // Configurar SendGrid
 const sendgridApiKey = process.env.SENDGRID_API_KEY.replace(/^['"]|['"]$/g, '');
