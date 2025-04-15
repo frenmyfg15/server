@@ -3,6 +3,15 @@ import cors from 'cors'; // Importa el paquete cors
 import databaseFunctions from './database.js';
 import dotenv from 'dotenv';
 import sgMail from '@sendgrid/mail';
+import { v2 as cloudinary } from 'cloudinary';
+
+
+
+cloudinary.config({
+  cloud_name: CLOUD_NAME,
+  api_key: API_KEY,
+  api_secret: API_SECRET,
+});
 
 const app = express();
 
@@ -27,10 +36,26 @@ app.use(express.json());
 const sendgridApiKey = process.env.SENDGRID_API_KEY.replace(/^['"]|['"]$/g, '');
 sgMail.setApiKey(sendgridApiKey);
 
+
+app.post('/cloudinary/eliminar-imagen', async (req, res) => {
+  const { public_id } = req.body;
+
+  if (!public_id) return res.status(400).json({ error: 'Falta el public_id' });
+
+  try {
+    const result = await cloudinary.uploader.destroy(public_id);
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error('Error eliminando imagen:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 //Métodos para comprobar el si el servidor funciona y si la base de datos está conectada correctamente
 app.get('/api/test', (req, res) => {
   res.json({ success: true, message: "El servidor está funcionando correctamente en Railway!" });
 });
+
 
 app.get("/api/test-db", async (req, res) => {
   try {
@@ -804,6 +829,20 @@ app.get('/publicaciones/:id/comentarios', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
+// Endpoint para eliminar publicación
+app.delete('/publicaciones/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await databaseFunctions.eliminarPublicacion(id);
+    res.status(200).json({ message: 'Publicación eliminada correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar la publicación:', error);
+    res.status(500).json({ error: 'Error al eliminar la publicación' });
+  }
+});
+
 
 
 // Endpoint para crear solicitud de amistad

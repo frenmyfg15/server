@@ -1709,6 +1709,11 @@ async function crearPublicacion({ usuario_id, contenido, imagen_url = null, vide
 
   return result.insertId;
 }
+// Eliminar publicación por ID
+export const eliminarPublicacion = async (id) => {
+  await pool.query('DELETE FROM publicaciones WHERE id = ?', [id]);
+};
+
 
 //Función para obtener las publicaciones
 async function obtenerPublicaciones(usuario_id) {
@@ -2135,6 +2140,7 @@ const databaseFunctions = {
   obtenerNotificaciones,
   marcarNotificacionLeida,
   crearPublicacion,
+  eliminarPublicacion,
   obtenerPublicaciones,
   toggleLike,
   crearComentario,
