@@ -1594,7 +1594,7 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
 
   const gruposMuscularesPorObjetivo = {
     'subir peso': {
-      1: [['fullbody']],
+      1: [['pecho', 'espalda', 'pierna', 'gluteo', 'triceps', 'biceps', 'hombro', 'core']],
       2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
       3: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo']],
       4: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna'], ['hombro']],
@@ -1603,40 +1603,40 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
       7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['hombro']]
     },
     'bajar peso': {
-      1: [['fullbody']],
-      2: [['pierna', 'core'], ['pecho', 'espalda']],
-      3: [['pierna', 'gluteo', 'core'], ['espalda', 'biceps'], ['pecho', 'triceps']],
-      4: [['pierna', 'gluteo'], ['espalda', 'core'], ['pecho', 'triceps'], ['fullbody']],
-      5: [['pierna'], ['espalda'], ['pecho'], ['core'], ['cardio']],
-      6: [['pierna', 'gluteo'], ['espalda'], ['pecho'], ['core'], ['fullbody'], ['cardio']],
-      7: [['fullbody'], ['fullbody'], ['pierna'], ['espalda'], ['pecho'], ['core'], ['cardio']]
+      1: [['pecho', 'espalda', 'pierna', 'gluteo', 'triceps', 'biceps', 'hombro', 'core']],
+      2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
+      3: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo']],
+      4: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna'], ['hombro']],
+      5: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core']],
+      6: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core'], ['pierna']],
+      7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['hombro']]
     },
     'definir': {
-      1: [['fullbody']],
-      2: [['fullbody'], ['fullbody']],
-      3: [['fullbody'], ['fullbody'], ['fullbody']],
-      4: [['pierna'], ['pecho', 'triceps'], ['espalda', 'biceps'], ['core']],
-      5: [['pierna'], ['pecho'], ['espalda'], ['hombro'], ['core']],
-      6: [['pierna'], ['pecho'], ['espalda'], ['hombro'], ['core'], ['fullbody']],
-      7: [['fullbody'], ['pierna'], ['pecho'], ['espalda'], ['hombro'], ['core'], ['fullbody']]
+      1: [['pecho', 'espalda', 'pierna', 'gluteo', 'triceps', 'biceps', 'hombro', 'core']],
+      2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
+      3: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo']],
+      4: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna'], ['hombro']],
+      5: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core']],
+      6: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core'], ['pierna']],
+      7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['hombro']]
     },
     'mantener peso': {
-      1: [['fullbody']],
+      1: [['pecho', 'espalda', 'pierna', 'gluteo', 'triceps', 'biceps', 'hombro', 'core']],
       2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
-      3: [['pecho', 'espalda'], ['pierna', 'gluteo'], ['core', 'hombro']],
-      4: [['pecho'], ['espalda'], ['pierna'], ['core']],
-      5: [['pecho'], ['espalda'], ['pierna'], ['hombro'], ['core']],
-      6: [['pecho'], ['espalda'], ['pierna'], ['hombro'], ['core'], ['fullbody']],
-      7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['core']]
+      3: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo']],
+      4: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna'], ['hombro']],
+      5: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core']],
+      6: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core'], ['pierna']],
+      7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['hombro']]
     },
     'mejorar resistencia': {
-      1: [['fullbody']],
-      2: [['fullbody'], ['fullbody']],
-      3: [['fullbody'], ['fullbody'], ['fullbody']],
-      4: [['fullbody'], ['fullbody'], ['fullbody'], ['core']],
-      5: [['fullbody'], ['fullbody'], ['fullbody'], ['core'], ['cardio']],
-      6: [['fullbody'], ['fullbody'], ['fullbody'], ['fullbody'], ['core'], ['cardio']],
-      7: [['fullbody'], ['fullbody'], ['fullbody'], ['fullbody'], ['core'], ['cardio'], ['cardio']]
+      1: [['pecho', 'espalda', 'pierna', 'gluteo', 'triceps', 'biceps', 'hombro', 'core']],
+      2: [['pecho', 'espalda'], ['pierna', 'gluteo']],
+      3: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo']],
+      4: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna'], ['hombro']],
+      5: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core']],
+      6: [['pecho', 'triceps'], ['espalda', 'biceps'], ['pierna', 'gluteo'], ['hombro'], ['core'], ['pierna']],
+      7: [['pecho'], ['espalda'], ['pierna'], ['gluteo'], ['triceps'], ['biceps'], ['hombro']]
     }
   };
 
@@ -1754,37 +1754,60 @@ async function obtenerPublicaciones(usuario_id) {
 }
 
 // Crear notificación
-export const crearNotificacion = async (usuarioId, tipo, contenido, solicitudId = null, emisorId = null, rutinaCompId) => {
-  // Verificar si ya existe una notificación del mismo tipo para el mismo usuario y con los mismos parámetros
-  // Si es una notificación de tipo 'rutina_compartida', también verificamos el rutina_compartida_id
-  const queryParams = [usuarioId, tipo, solicitudId, emisorId, rutinaCompId];
+export const crearNotificacion = async (
+  usuarioId,
+  tipo,
+  contenido,
+  solicitudId = null,
+  emisorId = null,
+  rutinaCompId = null,
+  publicacionId = null,
+  comentarioId = null
+) => {
   let query = `
     SELECT id FROM notificaciones 
-    WHERE usuario_id = ? AND tipo = ? 
-      AND solicitud_id = ? AND emisor_id = ?`;
+    WHERE usuario_id = ? AND tipo = ? AND solicitud_id ${solicitudId ? '= ?' : 'IS NULL'} AND emisor_id ${emisorId ? '= ?' : 'IS NULL'}
+  `;
 
-  // Si es una notificación de rutina compartida, verificamos el rutina_compartida_id
+  const params = [usuarioId, tipo];
+  if (solicitudId) params.push(solicitudId);
+  if (emisorId) params.push(emisorId);
+
   if (tipo === 'rutina_compartida' && rutinaCompId) {
     query += ' AND rutina_compartida_id = ?';
+    params.push(rutinaCompId);
   }
 
-  const [existing] = await pool.query(query, queryParams);
+  if ((tipo === 'comentario' || tipo === 'like') && publicacionId) {
+    query += ' AND publicacion_id = ?';
+    params.push(publicacionId);
+  }
+
+  if ((tipo === 'comentario_comentario' || tipo === 'like_comentario') && comentarioId) {
+    query += ' AND comentario_id = ?';
+    params.push(comentarioId);
+  }
+
+  const [existing] = await pool.query(query, params);
 
   if (existing.length > 0) {
-      // Si ya existe una notificación, no la creamos nuevamente
-      console.log('La notificación ya existe, no se creará una nueva');
-      return { success: false, message: 'Notificación ya existe' };
+    console.log('La notificación ya existe, no se creará una nueva');
+    return { success: false, message: 'Notificación ya existe' };
   }
 
-  // Si no existe, insertamos la nueva notificación
+  // 🟢 Insertar notificación
   await pool.query(
-    'INSERT INTO notificaciones (usuario_id, tipo, contenido, solicitud_id, emisor_id, rutina_compartida_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [usuarioId, tipo, contenido, solicitudId, emisorId, rutinaCompId]
+    `INSERT INTO notificaciones 
+      (usuario_id, tipo, contenido, solicitud_id, emisor_id, rutina_compartida_id, publicacion_id, comentario_id) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [usuarioId, tipo, contenido, solicitudId, emisorId, rutinaCompId, publicacionId, comentarioId]
   );
 
   console.log('Notificación creada correctamente');
   return { success: true, message: 'Notificación creada' };
 };
+
+
 
 
 //Función para dar y retirar like
@@ -1816,7 +1839,16 @@ async function toggleLike({ usuario_id, publicacion_id }) {
 
     if (publicacion.usuario_id !== usuario_id) {
       const texto = 'le gustó tu publicación';
-      await crearNotificacion(publicacion.usuario_id, 'logro', texto, null, usuario_id);
+      await crearNotificacion(
+        publicacion.usuario_id,   // usuario que recibirá la notificación
+        'logro',                  // tipo de notificación
+        texto,                    // contenido de la notificación
+        null,                     // solicitud_id (no aplica aquí)
+        usuario_id,               // emisor_id (quién generó la acción)
+        null,                     // rutina_compartida_id (no aplica)
+        publicacion_id            // publicacion_id (nuevo campo)
+      );
+      
     }
 
     return { liked: true };
@@ -1840,29 +1872,153 @@ async function crearComentario({ usuario_id, publicacion_id, contenido }) {
   // 🔔 Si no es un comentario a uno mismo
   if (publicacion.usuario_id !== usuario_id) {
     const texto = 'ha comentado en tu publicación';
-    await crearNotificacion(publicacion.usuario_id, 'mensaje', texto, null, usuario_id);
+    await crearNotificacion(
+      publicacion.usuario_id,   // usuario que recibirá la notificación
+      'mensaje',                  // tipo de notificación
+      texto,                    // contenido de la notificación
+      null,                     // solicitud_id (no aplica aquí)
+      usuario_id,               // emisor_id (quién generó la acción)
+      null,                     // rutina_compartida_id (no aplica)
+      publicacion_id            // publicacion_id (nuevo campo)
+    );
+    
   }
 }
 
-
-//Función para obtener un comentario
-async function obtenerComentarios(publicacion_id) {
-  const [rows] = await pool.query(
-    `
-    SELECT 
-      c.id, c.contenido, c.fecha_creacion,
-      u.nombre, u.apellido, u.imagen_url AS imagen_usuario
-    FROM comentarios c
-    JOIN usuarios u ON u.id = c.usuario_id
-    WHERE c.publicacion_id = ?
-    ORDER BY c.fecha_creacion ASC
-
-    `,
-    [publicacion_id]
+// Función en database.js
+export async function responderComentario({ comentario_id, usuario_id, contenido, publicacion_id }) {
+  const [result] = await pool.query(
+    `INSERT INTO comentarios (comentario_padre_id, usuario_id, publicacion_id, contenido)
+     VALUES (?, ?, ?, ?)`,
+    [comentario_id, usuario_id, publicacion_id, contenido]
   );
 
-  return rows;
+  const [[autorComentario]] = await pool.query(
+    `SELECT usuario_id FROM comentarios WHERE id = ?`,
+    [comentario_id]
+  );
+
+  if (autorComentario.usuario_id !== usuario_id) {
+    await pool.query(
+      `INSERT INTO notificaciones 
+      (usuario_id, tipo, contenido, publicacion_id, comentario_id, emisor_id)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        autorComentario.usuario_id,
+        'respuesta_comentario',
+        'Ha respondido a tu comentario',
+        publicacion_id,
+        comentario_id,
+        usuario_id,
+      ]
+    );
+  }
+
+  return { success: true, message: 'Respuesta enviada' };
 }
+
+
+// Función en database.js
+export const likeComentario = async ({ usuario_id, comentario_id, publicacion_id }) => {
+  // Verificar si ya existe
+  const [exist] = await pool.query(
+    `SELECT id FROM likes_comentarios WHERE usuario_id = ? AND comentario_id = ?`,
+    [usuario_id, comentario_id]
+  );
+
+  if (exist.length > 0) {
+    // 👉 Ya dio like, lo quitamos
+    await pool.query(
+      `DELETE FROM likes_comentarios WHERE usuario_id = ? AND comentario_id = ?`,
+      [usuario_id, comentario_id]
+    );
+    return { liked: false };
+  }
+
+  // 👉 No existe, lo insertamos
+  await pool.query(
+    `INSERT INTO likes_comentarios (usuario_id, comentario_id) VALUES (?, ?)`,
+    [usuario_id, comentario_id]
+  );
+
+  // (opcional) Notificación si el autor es distinto
+  const [[comentario]] = await pool.query(
+    `SELECT usuario_id FROM comentarios WHERE id = ?`,
+    [comentario_id]
+  );
+
+  if (comentario.usuario_id !== usuario_id) {
+    await pool.query(
+      `INSERT INTO notificaciones (usuario_id, tipo, contenido, publicacion_id, comentario_id, emisor_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        comentario.usuario_id,
+        'like_comentario',
+        'Le gustó tu comentario',
+        publicacion_id,
+        comentario_id,
+        usuario_id,
+      ]
+    );
+  }
+
+  return { liked: true };
+};
+
+
+//Función para obtener un comentario
+export const obtenerComentarios = async (publicacionId, usuarioId) => {
+  const [rows] = await pool.query(`
+    SELECT 
+      c.id, c.contenido, c.usuario_id, c.publicacion_id,
+      c.comentario_padre_id, c.fecha_creacion,
+      u.nombre, u.apellido, u.imagen_url AS imagen_usuario,
+      (SELECT COUNT(*) FROM likes_comentarios lc WHERE lc.comentario_id = c.id) AS likes,
+      EXISTS(
+        SELECT 1 FROM likes_comentarios lc WHERE lc.comentario_id = c.id AND lc.usuario_id = ?
+      ) AS liked
+    FROM comentarios c
+    JOIN usuarios u ON c.usuario_id = u.id
+    WHERE c.publicacion_id = ?
+    ORDER BY c.fecha_creacion ASC
+  `, [usuarioId, publicacionId]);
+
+  const comentarioMap = new Map();
+
+  rows.forEach((row) => {
+    comentarioMap.set(row.id, {
+      id: row.id,
+      contenido: row.contenido,
+      usuario_id: row.usuario_id,
+      nombre: row.nombre,
+      apellido: row.apellido,
+      imagen_usuario: row.imagen_usuario,
+      fecha_creacion: row.fecha_creacion,
+      likes: row.likes,
+      liked: !!row.liked,
+      comentario_padre_id: row.comentario_padre_id,
+      subcomentarios: []
+    });
+  });
+
+  const comentarios = [];
+
+  comentarioMap.forEach((comentario) => {
+    if (comentario.comentario_padre_id) {
+      const padre = comentarioMap.get(comentario.comentario_padre_id);
+      if (padre) padre.subcomentarios.push(comentario);
+    } else {
+      comentarios.push(comentario);
+    }
+  });
+
+  return comentarios;
+};
+
+
+
+
+
 
 //Función para contar las notificaciones no leida
 export const contarNotificacionesNoLeidas = async (usuarioId) => {
@@ -2033,28 +2189,32 @@ export const obtenerNotificaciones = async (usuarioId) => {
         rc.id AS rutina_compartida_id,
         u.nombre AS remitente_nombre,
         u.apellido AS remitente_apellido,
-        u.imagen_url AS remitente_imagen
+        u.imagen_url AS remitente_imagen,
+        c.publicacion_id AS comentario_publicacion_id,
+        c.id AS comentario_id
     FROM notificaciones n
     LEFT JOIN solicitudes_amistad s 
       ON n.tipo = 'solicitud_amistad' AND n.solicitud_id = s.id
+
     LEFT JOIN rutinas_compartidas rc 
-      ON n.tipo = 'rutina_compartida' 
-      AND rc.id = n.rutina_compartida_id
+      ON n.tipo = 'rutina_compartida' AND rc.id = n.rutina_compartida_id
+
+    LEFT JOIN comentarios c 
+      ON n.comentario_id = c.id
+
     LEFT JOIN usuarios u 
       ON n.emisor_id = u.id
+
     WHERE n.usuario_id = ?
     ORDER BY n.fecha_creacion DESC`,
     [usuarioId]
   );
 
-  // Filtrar notificaciones de rutinas duplicadas (si ya fueron procesadas)
   const notificacionesFiltradas = rows.reduce((acc, notif) => {
     if (notif.tipo === 'rutina_compartida' && notif.estado_rutina_compartida !== 'pendiente') {
-      // Si la rutina ya está procesada, verificamos si ya existe una notificación de esa rutina
       const duplicate = acc.some(existingNotif => existingNotif.rutina_compartida_id === notif.rutina_compartida_id);
       if (!duplicate) acc.push(notif);
     } else {
-      // Si no es rutina compartida o está pendiente, agregarla
       acc.push(notif);
     }
     return acc;
@@ -2062,6 +2222,7 @@ export const obtenerNotificaciones = async (usuarioId) => {
 
   return notificacionesFiltradas;
 };
+
 
 // Marcar notificación como leída
 export const marcarNotificacionLeida = async (notificacionId) => {
@@ -2095,6 +2256,32 @@ export const eliminarAmistad = async (usuarioId, amigoId) => {
     [usuarioId, amigoId, amigoId, usuarioId]
   );
 };
+
+// 📦 Obtener una publicación por su ID con datos del usuario
+export const obtenerPublicacionPorId = async (id, usuario_id) => {
+  const [rows] = await pool.query(
+    `SELECT 
+      p.*, 
+      u.nombre, 
+      u.apellido, 
+      u.imagen_url AS imagen_usuario,
+      (SELECT COUNT(*) FROM likes lp WHERE lp.publicacion_id = p.id) AS likes,
+      (SELECT COUNT(*) FROM comentarios c WHERE c.publicacion_id = p.id) AS comentarios,
+      EXISTS (
+        SELECT 1 FROM likes l 
+        WHERE l.publicacion_id = p.id AND l.usuario_id = ?
+      ) AS liked
+    FROM publicaciones p
+    JOIN usuarios u ON p.usuario_id = u.id
+    WHERE p.id = ?`,
+    [usuario_id || 0, id] // ✅ usamos 0 si no hay usuario (para que no falle el query)
+  );
+
+  return rows[0] || null;
+};
+
+
+
 
 
 const databaseFunctions = {
@@ -2143,12 +2330,15 @@ const databaseFunctions = {
   eliminarPublicacion,
   obtenerPublicaciones,
   toggleLike,
+  responderComentario,
+  likeComentario,
   crearComentario,
   obtenerComentarios,
   contarNotificacionesNoLeidas,
   actualizarImagenPerfil,
   obtenerAmigos,
   eliminarAmistad,
-  compartirMultiplesRutinas
+  compartirMultiplesRutinas,
+  obtenerPublicacionPorId
 };
 export default databaseFunctions;

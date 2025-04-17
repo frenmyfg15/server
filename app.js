@@ -774,7 +774,7 @@ app.get('/publicaciones/:usuario_id', async (req, res) => {
   }
 });
 
-//Endpoint para dar o retirar like
+// 📌 Endpoint para dar o retirar like a una publicación
 app.post('/publicaciones/like', async (req, res) => {
   const { usuario_id, publicacion_id } = req.body;
 
@@ -783,7 +783,7 @@ app.post('/publicaciones/like', async (req, res) => {
   }
 
   try {
-    const result = await databaseFunctions.toggleLike({ usuario_id, publicacion_id });
+    const result = await databaseFunctions.toggleLike({ usuario_id, publicacion_id }); // 🔁 Aquí ya se crea la notificación internamente
     res.status(200).json(result);
   } catch (error) {
     console.error('Error en like:', error);
@@ -791,7 +791,9 @@ app.post('/publicaciones/like', async (req, res) => {
   }
 });
 
-//Endpoint para crear un comentario
+
+
+// 📌 Endpoint para crear un comentario en una publicación
 app.post('/publicaciones/comentario', async (req, res) => {
   const { usuario_id, publicacion_id, contenido } = req.body;
 
@@ -803,8 +805,8 @@ app.post('/publicaciones/comentario', async (req, res) => {
     const idComentario = await databaseFunctions.crearComentario({
       usuario_id,
       publicacion_id,
-      contenido
-    });
+      contenido,
+    }); // 🔁 Aquí adentro se debe crear la notificación
 
     res.status(201).json({ mensaje: 'Comentario creado', id: idComentario });
   } catch (error) {
@@ -813,20 +815,84 @@ app.post('/publicaciones/comentario', async (req, res) => {
   }
 });
 
+
+
 //Endpoint para obtner los comentarios
 app.get('/publicaciones/:id/comentarios', async (req, res) => {
   const publicacion_id = parseInt(req.params.id);
+  const usuario_id = parseInt(req.query.usuario_id); // ✅ importante
 
-  if (isNaN(publicacion_id)) {
+  if (isNaN(publicacion_id) || isNaN(usuario_id)) {
     return res.status(400).json({ error: 'ID inválido' });
   }
 
   try {
-    const comentarios = await databaseFunctions.obtenerComentarios(publicacion_id);
+    const comentarios = await databaseFunctions.obtenerComentarios(publicacion_id, usuario_id);
     res.status(200).json(comentarios);
   } catch (error) {
     console.error('Error al obtener comentarios:', error);
     res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+
+// 📌 POST: Responder a un comentario
+app.post("/comentarios/responder", async (req, res) => {
+  try {
+    const { comentario_id, usuario_id, contenido, publicacion_id } = req.body;
+
+    if (!comentario_id || !usuario_id || !contenido || !publicacion_id) {
+      return res.status(400).json({ error: "Faltan campos obligatorios." });
+    }
+
+    const resultado = await databaseFunctions.responderComentario({
+      comentario_id,
+      usuario_id,
+      contenido,
+      publicacion_id
+  });
+
+    res.json(resultado);
+  } catch (error) {
+    console.log('No se pudo comentar el comentario:', error)
+    res.status(500).json({ error: "Error en el servidor", details: error.message });
+  }
+});
+
+// 📌 POST: Dar like a un comentario
+app.post("/comentarios/like", async (req, res) => {
+  try {
+    const { usuario_id, comentario_id, publicacion_id } = req.body;
+
+    if (!usuario_id || !comentario_id || !publicacion_id) {
+      return res.status(400).json({ error: "Faltan campos obligatorios." });
+    }
+
+    const resultado = await databaseFunctions.likeComentario({
+      usuario_id,
+      comentario_id,
+      publicacion_id,
+    });
+    
+
+    res.json(resultado);
+  } catch (error) {
+    console.error('Error al dar like a comentarios:', error);
+
+    res.status(500).json({ error: "Error en el servidor", details: error.message });
+  }
+});
+
+// 📌 GET: Obtener todos los comentarios y respuestas de una publicación
+app.get("/publicaciones/:publicacion_id/comentarios", async (req, res) => {
+  try {
+    const { publicacion_id } = req.params;
+
+    const resultado = await databaseFunctions.obtenerComentariosConRespuestas(publicacion_id);
+
+    res.json(resultado);
+  } catch (error) {
+    res.status(500).json({ error: "Error en el servidor", details: error.message });
   }
 });
 
@@ -999,6 +1065,32 @@ app.post('/rutinas/compartir-multiples', async (req, res) => {
     res.status(500).json({ error: 'Error al compartir rutinas' });
   }
 });
+
+// 📌 GET: Obtener publicación por ID
+app.get('/publicaciones/detalle/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const usuario_id = parseInt(req.query.usuario_id); // ✅ obtener usuario_id
+
+  if (isNaN(id)) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  try {
+    const publicacion = await databaseFunctions.obtenerPublicacionPorId(id, usuario_id); // ✅ pasar el usuario_id
+
+    if (!publicacion) {
+      return res.status(404).json({ error: "Publicación no encontrada" });
+    }
+
+    res.json(publicacion);
+  } catch (error) {
+    console.error("Error al obtener publicación por ID:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+});
+
+
+
 
 
 
