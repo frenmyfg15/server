@@ -330,7 +330,6 @@ export async function obtenerEjercicios(rutinaId, dia) {
 
     // Si no se encuentran ejercicios, retornar una respuesta adecuada
     if (rows.length === 0) {
-      console.log(`❌ No se encontraron ejercicios para ${dia}.`);
       return {
         success: false,
         message: `No se encontraron ejercicios para ${dia}.`,
@@ -420,7 +419,6 @@ export async function obtenerMateriales(id_ejercicio) {
 
     // Si no se encuentran materiales, retornar una respuesta adecuada
     if (rows.length === 0) {
-      console.log('No se encontraron materiales para el ejercicio');
       return {
         success: false,
         message: 'No se encontraron materiales para el ejercicio',
@@ -1451,7 +1449,6 @@ export async function insertarRutinaEnBaseDeDatos(
       [usuarioCreadorId, nombreRutina, objetivo, nivel]
     );
     const rutinaId = rutinaResult.insertId;
-    console.log(`✅ Rutina creada con ID: ${rutinaId}`);
 
     for (let i = 0; i < diasEntrenamientoOrdenados.length; i++) {
       const diaNombre = diasEntrenamientoOrdenados[i];
@@ -1461,7 +1458,6 @@ export async function insertarRutinaEnBaseDeDatos(
         [rutinaId, diaNombre, JSON.stringify(musculosDelDia)]
       );
       const diaId = diaResult.insertId;
-      console.log(`✅ Día insertado: ${diaNombre} (ID: ${diaId})`);
 
       const dia = distribucionEjercicios[i];
       const { series, repeticiones } = volumenPorObjetivoYNivel[objetivo][nivel];
@@ -1552,7 +1548,6 @@ export async function insertarRutinaEnBaseDeDatos(
     await connection.query(`UPDATE usuarios SET rutina_id = ? WHERE id = ?`, [rutinaId, usuarioCreadorId]);
     await connection.commit();
     connection.release();
-    console.log('✅ Rutina y asignaciones creadas con éxito.');
     return { success: true, rutinaId };
   } catch (error) {
     await connection.rollback();
@@ -1789,7 +1784,6 @@ export const crearNotificacion = async (
     [usuarioId, tipo, contenido, solicitudId, emisorId, rutinaCompId, publicacionId, comentarioId]
   );
 
-  console.log('✅ Notificación creada correctamente');
   return { success: true, message: 'Notificación creada' };
 };
 
@@ -1854,15 +1848,13 @@ async function toggleLike({ usuario_id, publicacion_id }) {
 }
 
 
-//Función para crear un comentario
-async function crearComentario({ usuario_id, publicacion_id, contenido }) {
+//Función para crear un comentario o respuesta
+async function crearComentario({ usuario_id, publicacion_id, contenido, comentario_padre_id = null }) {
   const textoLimpio = contenido.trim();
 
-  if (!textoLimpio) {
-    throw new Error("Comentario vacío no permitido.");
-  }
+  if (!textoLimpio) throw new Error("Comentario vacío no permitido.");
 
-  // 🚫 Prevención de spam: verificar último comentario del usuario
+  // Anti-spam
   const [[ultimoComentario]] = await pool.query(
     `SELECT contenido, fecha_creacion 
      FROM comentarios 
@@ -1877,45 +1869,45 @@ async function crearComentario({ usuario_id, publicacion_id, contenido }) {
     const fechaUltimo = new Date(ultimoComentario.fecha_creacion);
     const segundos = (ahora.getTime() - fechaUltimo.getTime()) / 1000;
 
-    if (
-      ultimoComentario.contenido.trim() === textoLimpio &&
-      segundos < 10 // ⏱️ mínimo 10 segundos entre comentarios iguales
-    ) {
+    if (ultimoComentario.contenido.trim() === textoLimpio && segundos < 10)
       throw new Error("Estás comentando lo mismo muy seguido.");
-    }
-
-    if (segundos < 5) {
+    if (segundos < 5)
       throw new Error("Espera unos segundos antes de comentar nuevamente.");
-    }
   }
 
-  // ✅ Crear el comentario
-  await pool.query(
-    'INSERT INTO comentarios (usuario_id, publicacion_id, contenido) VALUES (?, ?, ?)',
-    [usuario_id, publicacion_id, textoLimpio]
+  // ✅ Crear comentario o respuesta
+  const [result] = await pool.query(
+    `INSERT INTO comentarios (usuario_id, publicacion_id, contenido, comentario_padre_id)
+     VALUES (?, ?, ?, ?)`,
+    [usuario_id, publicacion_id, textoLimpio, comentario_padre_id]
   );
 
-  // 🔔 Obtener autor de la publicación
+  const comentarioId = result.insertId;
+
+  // Obtener autor de la publicación
   const [[publicacion]] = await pool.query(
     'SELECT usuario_id FROM publicaciones WHERE id = ?',
     [publicacion_id]
   );
 
-  // 🔔 Si no es un comentario a uno mismo
   if (publicacion.usuario_id !== usuario_id) {
-    const texto = 'ha comentado en tu publicación';
+    const tipo = comentario_padre_id ? 'respuesta_comentario' : 'comentario';
+    const texto = comentario_padre_id
+      ? 'ha respondido a tu comentario'
+      : 'ha comentado en tu publicación';
 
     await crearNotificacion(
       publicacion.usuario_id,
-      'mensaje',
+      tipo,
       texto,
       null,
       usuario_id,
       null,
-      publicacion_id
+      publicacion_id,
+      comentarioId // 👈 ID correcto
     );
 
-    // 🔔 Push notification
+    // Push
     const [[emisor]] = await pool.query(
       'SELECT nombre FROM usuarios WHERE id = ?',
       [usuario_id]
@@ -1923,12 +1915,20 @@ async function crearComentario({ usuario_id, publicacion_id, contenido }) {
 
     await enviarNotificacionPush(
       publicacion.usuario_id,
-      '¡Nuevo comentario!',
-      `${emisor.nombre} comentó tu publicación`,
-      { tipo: 'comentario', publicacion_id }
+      tipo === 'comentario' ? '¡Nuevo comentario!' : '¡Nueva respuesta!',
+      `${emisor.nombre} ${texto}`,
+      {
+        tipo,
+        publicacion_id,
+        comentario_id: comentarioId,
+      }
     );
   }
+
+  return comentarioId;
 }
+
+
 
 
 // Función en database.js
@@ -1966,36 +1966,38 @@ export async function responderComentario({ comentario_id, usuario_id, contenido
     }
   }
 
-  // ✅ Insertar la respuesta
+  // ✅ Insertar la nueva respuesta
   const [result] = await pool.query(
     `INSERT INTO comentarios (comentario_padre_id, usuario_id, publicacion_id, contenido)
      VALUES (?, ?, ?, ?)`,
     [comentario_id, usuario_id, publicacion_id, textoLimpio]
   );
 
-  // 🔔 Obtener autor original del comentario
+  const nuevoComentarioId = result.insertId;
+
+  // 🔔 Obtener autor del comentario original
   const [[autorComentario]] = await pool.query(
     `SELECT usuario_id FROM comentarios WHERE id = ?`,
     [comentario_id]
   );
 
   if (autorComentario.usuario_id !== usuario_id) {
-    // Notificación interna
+    // ✅ Notificación interna con ID del NUEVO comentario
     await pool.query(
       `INSERT INTO notificaciones 
-      (usuario_id, tipo, contenido, publicacion_id, comentario_id, emisor_id)
-      VALUES (?, ?, ?, ?, ?, ?)`,
+       (usuario_id, tipo, contenido, publicacion_id, comentario_id, emisor_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         autorComentario.usuario_id,
         'respuesta_comentario',
         'Ha respondido a tu comentario',
         publicacion_id,
-        comentario_id,
+        nuevoComentarioId, // 👈 ID de la respuesta recién creada
         usuario_id,
       ]
     );
 
-    // 🔔 Notificación push
+    // ✅ Notificación push
     const [[emisor]] = await pool.query(
       'SELECT nombre FROM usuarios WHERE id = ?',
       [usuario_id]
@@ -2008,13 +2010,14 @@ export async function responderComentario({ comentario_id, usuario_id, contenido
       {
         tipo: 'respuesta_comentario',
         publicacion_id,
-        comentario_id,
+        comentario_id: nuevoComentarioId, // 👈 ID correcto
       }
     );
   }
 
-  return { success: true, message: 'Respuesta enviada' };
+  return { success: true, message: 'Respuesta enviada', comentario_id: nuevoComentarioId };
 }
+
 
 
 
@@ -2212,7 +2215,6 @@ export const crearSolicitudAmistad = async (solicitanteId, receptorId) => {
   );
 
   if (existente.length > 0) {
-    console.log('⚠️ Solicitud ya existente');
     return { success: false, message: 'Solicitud ya enviada' };
   }
 
@@ -2519,30 +2521,39 @@ export const responderRutinaCompartida = async (compartidaId, estado) => {
 export const obtenerNotificaciones = async (usuarioId) => {
   const [rows] = await pool.query(
     `SELECT 
-        n.*, 
-        s.estado AS estado_solicitud,
-        rc.estado AS estado_rutina_compartida,
-        rc.id AS rutina_compartida_id,
-        u.nombre AS remitente_nombre,
-        u.apellido AS remitente_apellido,
-        u.imagen_url AS remitente_imagen,
-        c.publicacion_id AS comentario_publicacion_id,
-        c.id AS comentario_id
-    FROM notificaciones n
-    LEFT JOIN solicitudes_amistad s 
-      ON n.tipo = 'solicitud_amistad' AND n.solicitud_id = s.id
+  n.id,
+  n.tipo,
+  n.contenido,
+  n.usuario_id,
+  n.emisor_id,
+  n.publicacion_id AS publicacion_id,
+  n.solicitud_id,
+  n.rutina_compartida_id,
+  n.comentario_id,
+  n.leido,
+  n.fecha_creacion,
 
-    LEFT JOIN rutinas_compartidas rc 
-      ON n.tipo = 'rutina_compartida' AND rc.id = n.rutina_compartida_id
+  s.estado AS estado_solicitud,
+  rc.estado AS estado_rutina_compartida,
+  rc.id AS rutina_compartida_id,
 
-    LEFT JOIN comentarios c 
-      ON n.comentario_id = c.id
+  u.nombre AS remitente_nombre,
+  u.apellido AS remitente_apellido,
+  u.imagen_url AS remitente_imagen
 
-    LEFT JOIN usuarios u 
-      ON n.emisor_id = u.id
+FROM notificaciones n
+LEFT JOIN solicitudes_amistad s 
+  ON n.tipo = 'solicitud_amistad' AND n.solicitud_id = s.id
 
-    WHERE n.usuario_id = ?
-    ORDER BY n.fecha_creacion DESC`,
+LEFT JOIN rutinas_compartidas rc 
+  ON n.tipo = 'rutina_compartida' AND rc.id = n.rutina_compartida_id
+
+LEFT JOIN usuarios u 
+  ON n.emisor_id = u.id
+
+WHERE n.usuario_id = ?
+ORDER BY n.fecha_creacion DESC
+`,
     [usuarioId]
   );
 

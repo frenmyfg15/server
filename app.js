@@ -70,8 +70,6 @@ app.get("/api/test-db", async (req, res) => {
 
 app.post('/generar-rutina', async (req, res) => {
   try {
-    console.log('📥 Petición recibida en /generar-rutina');
-    console.log('➡️ Body recibido:', JSON.stringify(req.body, null, 2));
 
     const {
       usuarioId, nombreRutina, tiempoDisponible, enfoqueUsuario, diasEntrenamiento,
@@ -87,7 +85,6 @@ app.post('/generar-rutina', async (req, res) => {
     const diasEntrenamientoOrdenados = diasSemana.filter(dia =>
       diasEntrenamiento.map(d => d.toLowerCase()).includes(dia)
     );
-    console.log('📅 Días de entrenamiento ordenados:', diasEntrenamientoOrdenados);
 
     if (diasEntrenamientoOrdenados.length === 0) {
       console.error('❌ Los días de entrenamiento no son válidos');
@@ -97,7 +94,6 @@ app.post('/generar-rutina', async (req, res) => {
     const distribucionEjercicios = databaseFunctions.calcularEjerciciosPorParte(
       tiempoDisponible, enfoqueUsuario, diasEntrenamientoOrdenados.length, objetivo
     );
-    console.log('📊 Distribución de ejercicios generada:', JSON.stringify(distribucionEjercicios, null, 2));
 
     if (!distribucionEjercicios || distribucionEjercicios.length === 0) {
       console.error('❌ No se pudo generar la distribución de ejercicios');
@@ -109,14 +105,10 @@ app.post('/generar-rutina', async (req, res) => {
       objetivo, nivel, restricciones, tiempoDisponible, lugarEntrenamiento
     );
 
-    console.log('✅ Resultado de insertarRutinaEnBaseDeDatos:', resultado);
-
     if (!resultado.success) {
       console.error('❌ Error al insertar la rutina:', resultado.message);
       return res.status(500).json({ success: false, message: 'Error al insertar la rutina', error: resultado.message });
     }
-
-    console.log('🎉 Rutina generada con éxito, ID:', resultado.rutinaId);
 
     res.status(201).json({
       success: true,
@@ -797,7 +789,7 @@ app.post('/publicaciones/like', async (req, res) => {
 
 // 📌 Endpoint para crear un comentario en una publicación
 app.post('/publicaciones/comentario', async (req, res) => {
-  const { usuario_id, publicacion_id, contenido } = req.body;
+  const { usuario_id, publicacion_id, contenido, comentario_padre_id = null } = req.body;
 
   if (!usuario_id || !publicacion_id || !contenido?.trim()) {
     return res.status(400).json({ error: 'Datos inválidos' });
@@ -808,7 +800,8 @@ app.post('/publicaciones/comentario', async (req, res) => {
       usuario_id,
       publicacion_id,
       contenido,
-    }); // 🔁 Aquí adentro se debe crear la notificación
+      comentario_padre_id, // 👈 ahora se pasa también este valor
+    });
 
     res.status(201).json({ mensaje: 'Comentario creado', id: idComentario });
   } catch (error) {
@@ -816,6 +809,7 @@ app.post('/publicaciones/comentario', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
 
 
 
@@ -856,7 +850,6 @@ app.post("/comentarios/responder", async (req, res) => {
 
     res.json(resultado);
   } catch (error) {
-    console.log('No se pudo comentar el comentario:', error)
     res.status(500).json({ error: "Error en el servidor", details: error.message });
   }
 });
@@ -1055,7 +1048,6 @@ app.get('/notificaciones/:usuarioId/noleidas', async (req, res) => {
 app.put('/usuarios/:id/imagen-perfil', async (req, res) => {
   const { id } = req.params;
   const { imagen_url } = req.body;
-  console.log('desde el servidor');
 
   if (!imagen_url) {
     return res.status(400).json({ error: 'URL de imagen faltante' });
