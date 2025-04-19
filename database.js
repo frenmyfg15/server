@@ -1,10 +1,12 @@
 import mysql from 'mysql2';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
+import { enviarNotificacionPush } from './push.js';
+
 
 
 dotenv.config();
-const pool = mysql.createPool({
+export const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
   port: process.env.MYSQL_PORT || 3306, // 🔥 Agregar el puerto
   user: process.env.MYSQL_USER,
@@ -1700,22 +1702,24 @@ function calcularEjerciciosPorParte(tiempoDisponible, enfoqueUsuario, diasEntren
 //A partir de aquí se agregan las funciones de la nueva actualización
 
 //Función para guardar una publicación
-async function crearPublicacion({ usuario_id, contenido, imagen_url = null, video_url = null }) {
+async function crearPublicacion({ usuario_id, contenido, imagen_url = null, video_url = null, rutina_id = null }) {
   const [result] = await pool.query(
-    `INSERT INTO publicaciones (usuario_id, contenido, imagen_url, video_url)
-     VALUES (?, ?, ?, ?)`,
-    [usuario_id, contenido, imagen_url, video_url]
+    `INSERT INTO publicaciones (usuario_id, contenido, imagen_url, video_url, rutina_id)
+     VALUES (?, ?, ?, ?, ?)`,
+    [usuario_id, contenido, imagen_url, video_url, rutina_id]
   );
 
   return result.insertId;
 }
+
 // Eliminar publicación por ID
 export const eliminarPublicacion = async (id) => {
   await pool.query('DELETE FROM publicaciones WHERE id = ?', [id]);
 };
 
 
-//Función para obtener las publicaciones
+
+// Función para obtener las publicaciones
 async function obtenerPublicaciones(usuario_id) {
   const [rows] = await pool.query(
     `
@@ -1725,10 +1729,19 @@ async function obtenerPublicaciones(usuario_id) {
       p.imagen_url,
       p.video_url,
       p.fecha_creacion,
+      p.rutina_id,
       u.id AS usuario_id,
       u.nombre,
       u.apellido,
-      u.imagen_url AS imagen_usuario, -- 👈 agregar esto
+      u.imagen_url AS imagen_usuario,
+      r.nombre AS rutina_nombre,
+      r.nivel AS rutina_nivel,
+      r.objetivo AS rutina_objetivo,
+      (
+  SELECT GROUP_CONCAT(d.nombre_dia ORDER BY FIELD(d.nombre_dia, 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'))
+  FROM dias d
+  WHERE d.rutina_id = r.id
+) AS rutina_dias,
       (SELECT COUNT(*) FROM likes WHERE publicacion_id = p.id) AS likes,
       (SELECT COUNT(*) FROM comentarios WHERE publicacion_id = p.id) AS comentarios,
       EXISTS (
@@ -1737,6 +1750,7 @@ async function obtenerPublicaciones(usuario_id) {
       ) AS liked
     FROM publicaciones p
     JOIN usuarios u ON u.id = p.usuario_id
+    LEFT JOIN rutinas r ON r.id = p.rutina_id
     WHERE 
       p.usuario_id = ? 
       OR p.usuario_id IN (
@@ -1749,9 +1763,12 @@ async function obtenerPublicaciones(usuario_id) {
     [usuario_id, usuario_id, usuario_id, usuario_id]
   );
 
-
-  return rows;
+  return rows.map(pub => ({
+    ...pub,
+    rutina_dias: pub.rutina_dias ? pub.rutina_dias.split(',') : [],
+  }));
 }
+
 
 // Crear notificación
 export const crearNotificacion = async (
@@ -1764,38 +1781,7 @@ export const crearNotificacion = async (
   publicacionId = null,
   comentarioId = null
 ) => {
-  let query = `
-    SELECT id FROM notificaciones 
-    WHERE usuario_id = ? AND tipo = ? AND solicitud_id ${solicitudId ? '= ?' : 'IS NULL'} AND emisor_id ${emisorId ? '= ?' : 'IS NULL'}
-  `;
-
-  const params = [usuarioId, tipo];
-  if (solicitudId) params.push(solicitudId);
-  if (emisorId) params.push(emisorId);
-
-  if (tipo === 'rutina_compartida' && rutinaCompId) {
-    query += ' AND rutina_compartida_id = ?';
-    params.push(rutinaCompId);
-  }
-
-  if ((tipo === 'comentario' || tipo === 'like') && publicacionId) {
-    query += ' AND publicacion_id = ?';
-    params.push(publicacionId);
-  }
-
-  if ((tipo === 'comentario_comentario' || tipo === 'like_comentario') && comentarioId) {
-    query += ' AND comentario_id = ?';
-    params.push(comentarioId);
-  }
-
-  const [existing] = await pool.query(query, params);
-
-  if (existing.length > 0) {
-    console.log('La notificación ya existe, no se creará una nueva');
-    return { success: false, message: 'Notificación ya existe' };
-  }
-
-  // 🟢 Insertar notificación
+  // 🟢 Insertar notificación sin verificar duplicados
   await pool.query(
     `INSERT INTO notificaciones 
       (usuario_id, tipo, contenido, solicitud_id, emisor_id, rutina_compartida_id, publicacion_id, comentario_id) 
@@ -1803,11 +1789,9 @@ export const crearNotificacion = async (
     [usuarioId, tipo, contenido, solicitudId, emisorId, rutinaCompId, publicacionId, comentarioId]
   );
 
-  console.log('Notificación creada correctamente');
+  console.log('✅ Notificación creada correctamente');
   return { success: true, message: 'Notificación creada' };
 };
-
-
 
 
 //Función para dar y retirar like
@@ -1839,17 +1823,31 @@ async function toggleLike({ usuario_id, publicacion_id }) {
 
     if (publicacion.usuario_id !== usuario_id) {
       const texto = 'le gustó tu publicación';
+    
       await crearNotificacion(
-        publicacion.usuario_id,   // usuario que recibirá la notificación
-        'logro',                  // tipo de notificación
-        texto,                    // contenido de la notificación
-        null,                     // solicitud_id (no aplica aquí)
-        usuario_id,               // emisor_id (quién generó la acción)
-        null,                     // rutina_compartida_id (no aplica)
-        publicacion_id            // publicacion_id (nuevo campo)
+        publicacion.usuario_id,   // receptor
+        'logro',                  // tipo
+        texto,                    // contenido
+        null,                     // solicitud_id
+        usuario_id,               // emisor
+        null,                     // rutina_compartida_id
+        publicacion_id            // publicacion_id
       );
-      
+    
+      // 🔔 Enviar push notification
+      const [[emisor]] = await pool.query(
+        'SELECT nombre FROM usuarios WHERE id = ?',
+        [usuario_id]
+      );
+    
+      await enviarNotificacionPush(
+        publicacion.usuario_id,
+        '¡Nuevo like ❤️!',
+        `${emisor.nombre} le dio like a tu publicación`,
+        { tipo: 'like', publicacion_id }
+      );
     }
+    
 
     return { liked: true };
   }
@@ -1881,7 +1879,7 @@ async function crearComentario({ usuario_id, publicacion_id, contenido }) {
       null,                     // rutina_compartida_id (no aplica)
       publicacion_id            // publicacion_id (nuevo campo)
     );
-    
+
   }
 }
 
@@ -2150,25 +2148,93 @@ async function compartirMultiplesRutinas(usuarioId, destinoId, rutinaIds) {
 }
 
 // Obtener rutinas compartidas
-export const obtenerRutinasCompartidas = async (usuarioId) => {
-  const [rows] = await pool.query(
-    `
-    SELECT rc.*, 
-           r.nombre AS nombre_rutina, 
-           r.descripcion, 
-           r.nivel, 
-           r.objetivo,
-           u.nombre AS remitente_nombre, 
-           u.apellido AS remitente_apellido
-    FROM rutinas_compartidas rc
-    JOIN rutinas r ON rc.rutina_id = r.id
-    JOIN usuarios u ON rc.usuario_id = u.id
-    WHERE rc.usuario_destino_id = ?
-    `,
-    [usuarioId]
+// 📦 Función para obtener rutinas compartidas con días asignados
+async function obtenerRutinasCompartidas(usuarioId) {
+  const connection = await pool.getConnection();
+  try {
+    const [rutinas] = await connection.execute(`
+      SELECT rc.id AS compartida_id,
+             r.id AS rutina_id,
+             r.nombre,
+             r.descripcion,
+             r.nivel,
+             r.objetivo,
+             r.fecha_creacion,
+             u.nombre AS creador_nombre,
+             u.apellido AS creador_apellido
+      FROM rutinas_compartidas rc
+      JOIN rutinas r ON rc.rutina_id = r.id
+      JOIN usuarios u ON r.usuario_creador_id = u.id
+      WHERE rc.usuario_destino_id = ?
+      ORDER BY r.fecha_creacion DESC
+    `, [usuarioId]);
+
+    if (rutinas.length === 0) {
+      return [];
+    }
+
+    const rutinaIds = rutinas.map(r => r.rutina_id);
+    const placeholders = rutinaIds.map(() => '?').join(',');
+
+    const [dias] = await connection.execute(`
+      SELECT DISTINCT d.rutina_id, d.nombre_dia
+      FROM dias d
+      JOIN ejercicios_asignados ea ON d.id = ea.dia_id
+      WHERE d.rutina_id IN (${placeholders})
+      ORDER BY d.rutina_id, d.nombre_dia
+    `, rutinaIds);
+
+    const rutinasMap = {};
+    rutinas.forEach(rutina => {
+      rutinasMap[rutina.rutina_id] = {
+        id: rutina.rutina_id,
+        nombre: rutina.nombre,
+        descripcion: rutina.descripcion,
+        nivel: rutina.nivel,
+        objetivo: rutina.objetivo,
+        fecha_creacion: rutina.fecha_creacion,
+        creador: `${rutina.creador_nombre} ${rutina.creador_apellido}`,
+        dias: []
+      };
+    });
+
+    dias.forEach(dia => {
+      if (rutinasMap[dia.rutina_id]) {
+        rutinasMap[dia.rutina_id].dias.push(dia.nombre_dia);
+      }
+    });
+
+    return Object.values(rutinasMap);
+  } catch (error) {
+    console.error("❌ Error en obtenerRutinasCompartidasConDias:", error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+//Función para agregar un rutina desde las que se comparten en las publicaciones
+async function obtenerRutinaCompartida({ rutina_id, usuario_id, usuario_destino_id }) {
+  // Verificar si ya existe
+  const [existe] = await pool.query(
+    `SELECT id FROM rutinas_compartidas 
+     WHERE rutina_id = ? AND usuario_destino_id = ?`,
+    [rutina_id, usuario_destino_id]
   );
-  return rows;
-};
+
+  if (existe.length > 0) {
+    return { yaExiste: true };
+  }
+
+  // Insertar si no existe
+  await pool.query(
+    `INSERT INTO rutinas_compartidas (rutina_id, usuario_id, usuario_destino_id, estado)
+     VALUES (?, ?, ?, 'aceptada')`,
+    [rutina_id, usuario_id, usuario_destino_id]
+  );
+
+  return { yaExiste: false };
+}
+
 
 // Responder rutina compartida
 export const responderRutinaCompartida = async (compartidaId, estado) => {
@@ -2265,6 +2331,14 @@ export const obtenerPublicacionPorId = async (id, usuario_id) => {
       u.nombre, 
       u.apellido, 
       u.imagen_url AS imagen_usuario,
+      r.nombre AS rutina_nombre,
+      r.nivel AS rutina_nivel,
+      r.objetivo AS rutina_objetivo,
+      (
+        SELECT GROUP_CONCAT(d.nombre_dia ORDER BY FIELD(d.nombre_dia, 'lunes','martes','miercoles','jueves','viernes','sabado','domingo'))
+        FROM dias d
+        WHERE d.rutina_id = r.id
+      ) AS rutina_dias,
       (SELECT COUNT(*) FROM likes lp WHERE lp.publicacion_id = p.id) AS likes,
       (SELECT COUNT(*) FROM comentarios c WHERE c.publicacion_id = p.id) AS comentarios,
       EXISTS (
@@ -2273,15 +2347,27 @@ export const obtenerPublicacionPorId = async (id, usuario_id) => {
       ) AS liked
     FROM publicaciones p
     JOIN usuarios u ON p.usuario_id = u.id
+    LEFT JOIN rutinas r ON p.rutina_id = r.id
     WHERE p.id = ?`,
-    [usuario_id || 0, id] // ✅ usamos 0 si no hay usuario (para que no falle el query)
+    [usuario_id || 0, id]
   );
+
+  // Parsear los días si existen
+  if (rows[0]?.rutina_dias) {
+    rows[0].rutina_dias = rows[0].rutina_dias.split(',');
+  } else {
+    rows[0].rutina_dias = [];
+  }
 
   return rows[0] || null;
 };
 
-
-
+export const guardarPushToken = async (usuario_id, push_token) => {
+  await pool.query(
+    `UPDATE usuarios SET push_token = ? WHERE id = ?`,
+    [push_token, usuario_id]
+  );
+};
 
 
 const databaseFunctions = {
@@ -2322,6 +2408,7 @@ const databaseFunctions = {
   responderSolicitud,
   buscarUsuarios,
   obtenerRutinasCompartidas,
+  obtenerRutinaCompartida,
   responderRutinaCompartida,
   crearNotificacion,
   obtenerNotificaciones,
@@ -2339,6 +2426,7 @@ const databaseFunctions = {
   obtenerAmigos,
   eliminarAmistad,
   compartirMultiplesRutinas,
-  obtenerPublicacionPorId
+  obtenerPublicacionPorId,
+  guardarPushToken
 };
 export default databaseFunctions;

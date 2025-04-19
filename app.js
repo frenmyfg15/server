@@ -733,12 +733,12 @@ app.put('/remplazar/:rutinaId/ejercicios/:ejercicioAsignadoId', async (req, res)
 
 
 //-----------------------------------Desde aquí empizan los nuevos Endpints para la actualizacion que implementa un sistema de amistades-------------------------------
-//Endpoint para guardar una publicación
+// Endpoint para guardar una publicación
 app.post('/publicaciones', async (req, res) => {
   try {
-    const { usuario_id, contenido, imagen_url, video_url } = req.body;
+    const { usuario_id, contenido, imagen_url, video_url, rutina_id } = req.body;
 
-    if (!usuario_id || (!contenido && !imagen_url && !video_url)) {
+    if (!usuario_id || (!contenido && !imagen_url && !video_url && !rutina_id)) {
       return res.status(400).json({ error: 'Datos insuficientes' });
     }
 
@@ -746,7 +746,8 @@ app.post('/publicaciones', async (req, res) => {
       usuario_id,
       contenido,
       imagen_url,
-      video_url
+      video_url,
+      rutina_id
     });
 
     res.status(201).json({ mensaje: 'Publicación creada', id: publicacionId });
@@ -755,6 +756,7 @@ app.post('/publicaciones', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
 
 //Endpoint para obtener las publicaciones
 app.get('/publicaciones/:usuario_id', async (req, res) => {
@@ -850,7 +852,7 @@ app.post("/comentarios/responder", async (req, res) => {
       usuario_id,
       contenido,
       publicacion_id
-  });
+    });
 
     res.json(resultado);
   } catch (error) {
@@ -873,7 +875,7 @@ app.post("/comentarios/like", async (req, res) => {
       comentario_id,
       publicacion_id,
     });
-    
+
 
     res.json(resultado);
   } catch (error) {
@@ -945,12 +947,47 @@ app.get('/usuarios/buscar', async (req, res) => {
   res.json(resultados);
 });
 
-// Obtener rutinas compartidas recibidas
-app.get('/rutinas/compartidas/:usuarioId', async (req, res) => {
-  const { usuarioId } = req.params;
-  const rutinas = await databaseFunctions.obtenerRutinasCompartidas(usuarioId);
-  res.json(rutinas);
+// 📌 POST: Obtener rutinas compartidas con días asignados por usuario
+app.post('/rutinas/compartidas', async (req, res) => {
+  try {
+    const { usuarioId } = req.body;
+    if (!usuarioId) {
+      return res.status(400).json({ error: "El usuarioId es obligatorio" });
+    }
+
+    const rutinasCompartidas = await databaseFunctions.obtenerRutinasCompartidas(usuarioId);
+
+    res.json(rutinasCompartidas); // Devuelve las rutinas compartidas o un array vacío
+  } catch (error) {
+    console.error("❌ Error en /rutinas/compartidas:", error);
+    res.status(500).json({ error: 'Error al obtener rutinas compartidas', details: error.message });
+  }
 });
+
+// En app.js
+app.post('/rutinas/obtener', async (req, res) => {
+  const { rutina_id, usuario_id, usuario_destino_id } = req.body;
+
+  if (!rutina_id || !usuario_destino_id) {
+    return res.status(400).json({ error: 'Faltan datos requeridos' });
+  }
+
+  try {
+    const result = await databaseFunctions.obtenerRutinaCompartida({ rutina_id, usuario_id, usuario_destino_id });
+
+    if (result.yaExiste) {
+      return res.status(409).json({ mensaje: 'Ya tienes esta rutina guardada' });
+    }
+
+    res.status(201).json({ mensaje: 'Rutina obtenida correctamente' });
+  } catch (err) {
+    console.error('Error al obtener rutina:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+
+
 
 // Responder rutina compartida
 app.post('/rutinas/compartida/responder', async (req, res) => {
@@ -1089,13 +1126,22 @@ app.get('/publicaciones/detalle/:id', async (req, res) => {
   }
 });
 
+// ✅ Guardar o actualizar el push token
+app.post('/usuarios/push-token', async (req, res) => {
+  const { usuario_id, push_token } = req.body;
 
+  if (!usuario_id || !push_token) {
+    return res.status(400).json({ error: 'Faltan datos requeridos' });
+  }
 
-
-
-
-
-
+  try {
+    await databaseFunctions.guardarPushToken(usuario_id, push_token);
+    res.json({ mensaje: 'Token guardado correctamente' });
+  } catch (error) {
+    console.error('❌ Error al guardar push token:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
 
 // Configurar el servidor para escuchar en un puerto
 const PORT = process.env.PORT || 3000;
