@@ -1856,9 +1856,43 @@ async function toggleLike({ usuario_id, publicacion_id }) {
 
 //Función para crear un comentario
 async function crearComentario({ usuario_id, publicacion_id, contenido }) {
+  const textoLimpio = contenido.trim();
+
+  if (!textoLimpio) {
+    throw new Error("Comentario vacío no permitido.");
+  }
+
+  // 🚫 Prevención de spam: verificar último comentario del usuario
+  const [[ultimoComentario]] = await pool.query(
+    `SELECT contenido, fecha_creacion 
+     FROM comentarios 
+     WHERE usuario_id = ? AND publicacion_id = ? 
+     ORDER BY fecha_creacion DESC 
+     LIMIT 1`,
+    [usuario_id, publicacion_id]
+  );
+
+  if (ultimoComentario) {
+    const ahora = new Date();
+    const fechaUltimo = new Date(ultimoComentario.fecha_creacion);
+    const segundos = (ahora.getTime() - fechaUltimo.getTime()) / 1000;
+
+    if (
+      ultimoComentario.contenido.trim() === textoLimpio &&
+      segundos < 10 // ⏱️ mínimo 10 segundos entre comentarios iguales
+    ) {
+      throw new Error("Estás comentando lo mismo muy seguido.");
+    }
+
+    if (segundos < 5) {
+      throw new Error("Espera unos segundos antes de comentar nuevamente.");
+    }
+  }
+
+  // ✅ Crear el comentario
   await pool.query(
     'INSERT INTO comentarios (usuario_id, publicacion_id, contenido) VALUES (?, ?, ?)',
-    [usuario_id, publicacion_id, contenido]
+    [usuario_id, publicacion_id, textoLimpio]
   );
 
   // 🔔 Obtener autor de la publicación
@@ -1870,33 +1904,83 @@ async function crearComentario({ usuario_id, publicacion_id, contenido }) {
   // 🔔 Si no es un comentario a uno mismo
   if (publicacion.usuario_id !== usuario_id) {
     const texto = 'ha comentado en tu publicación';
+
     await crearNotificacion(
-      publicacion.usuario_id,   // usuario que recibirá la notificación
-      'mensaje',                  // tipo de notificación
-      texto,                    // contenido de la notificación
-      null,                     // solicitud_id (no aplica aquí)
-      usuario_id,               // emisor_id (quién generó la acción)
-      null,                     // rutina_compartida_id (no aplica)
-      publicacion_id            // publicacion_id (nuevo campo)
+      publicacion.usuario_id,
+      'mensaje',
+      texto,
+      null,
+      usuario_id,
+      null,
+      publicacion_id
     );
 
+    // 🔔 Push notification
+    const [[emisor]] = await pool.query(
+      'SELECT nombre FROM usuarios WHERE id = ?',
+      [usuario_id]
+    );
+
+    await enviarNotificacionPush(
+      publicacion.usuario_id,
+      '¡Nuevo comentario!',
+      `${emisor.nombre} comentó tu publicación`,
+      { tipo: 'comentario', publicacion_id }
+    );
   }
 }
 
+
 // Función en database.js
 export async function responderComentario({ comentario_id, usuario_id, contenido, publicacion_id }) {
+  const textoLimpio = contenido.trim();
+
+  if (!textoLimpio) {
+    throw new Error("Respuesta vacía no permitida.");
+  }
+
+  // 🛡️ Anti-spam: verificar última respuesta del mismo usuario a ese comentario
+  const [[ultimaRespuesta]] = await pool.query(
+    `SELECT contenido, fecha_creacion 
+     FROM comentarios 
+     WHERE comentario_padre_id = ? AND usuario_id = ? 
+     ORDER BY fecha_creacion DESC 
+     LIMIT 1`,
+    [comentario_id, usuario_id]
+  );
+
+  if (ultimaRespuesta) {
+    const ahora = new Date();
+    const anterior = new Date(ultimaRespuesta.fecha_creacion);
+    const segundos = (ahora.getTime() - anterior.getTime()) / 1000;
+
+    if (
+      ultimaRespuesta.contenido.trim() === textoLimpio &&
+      segundos < 10
+    ) {
+      throw new Error("Estás respondiendo lo mismo muy seguido.");
+    }
+
+    if (segundos < 5) {
+      throw new Error("Espera unos segundos antes de responder nuevamente.");
+    }
+  }
+
+  // ✅ Insertar la respuesta
   const [result] = await pool.query(
     `INSERT INTO comentarios (comentario_padre_id, usuario_id, publicacion_id, contenido)
      VALUES (?, ?, ?, ?)`,
-    [comentario_id, usuario_id, publicacion_id, contenido]
+    [comentario_id, usuario_id, publicacion_id, textoLimpio]
   );
 
+  // 🔔 Obtener autor original del comentario
   const [[autorComentario]] = await pool.query(
     `SELECT usuario_id FROM comentarios WHERE id = ?`,
     [comentario_id]
   );
 
   if (autorComentario.usuario_id !== usuario_id) {
+    // Notificación interna
     await pool.query(
       `INSERT INTO notificaciones 
       (usuario_id, tipo, contenido, publicacion_id, comentario_id, emisor_id)
@@ -1910,22 +1994,39 @@ export async function responderComentario({ comentario_id, usuario_id, contenido
         usuario_id,
       ]
     );
+
+    // 🔔 Notificación push
+    const [[emisor]] = await pool.query(
+      'SELECT nombre FROM usuarios WHERE id = ?',
+      [usuario_id]
+    );
+
+    await enviarNotificacionPush(
+      autorComentario.usuario_id,
+      '¡Nueva respuesta!',
+      `${emisor.nombre} respondió a tu comentario`,
+      {
+        tipo: 'respuesta_comentario',
+        publicacion_id,
+        comentario_id,
+      }
+    );
   }
 
   return { success: true, message: 'Respuesta enviada' };
 }
 
 
+
 // Función en database.js
 export const likeComentario = async ({ usuario_id, comentario_id, publicacion_id }) => {
-  // Verificar si ya existe
+  // ✅ Verificar si ya existe el like
   const [exist] = await pool.query(
     `SELECT id FROM likes_comentarios WHERE usuario_id = ? AND comentario_id = ?`,
     [usuario_id, comentario_id]
   );
 
   if (exist.length > 0) {
-    // 👉 Ya dio like, lo quitamos
     await pool.query(
       `DELETE FROM likes_comentarios WHERE usuario_id = ? AND comentario_id = ?`,
       [usuario_id, comentario_id]
@@ -1933,35 +2034,62 @@ export const likeComentario = async ({ usuario_id, comentario_id, publicacion_id
     return { liked: false };
   }
 
-  // 👉 No existe, lo insertamos
+  // ✅ Insertar nuevo like
   await pool.query(
     `INSERT INTO likes_comentarios (usuario_id, comentario_id) VALUES (?, ?)`,
     [usuario_id, comentario_id]
   );
 
-  // (opcional) Notificación si el autor es distinto
+  // 🔍 Buscar autor del comentario
   const [[comentario]] = await pool.query(
     `SELECT usuario_id FROM comentarios WHERE id = ?`,
     [comentario_id]
   );
 
+  // 🛡️ Evitar likes a uno mismo
   if (comentario.usuario_id !== usuario_id) {
-    await pool.query(
-      `INSERT INTO notificaciones (usuario_id, tipo, contenido, publicacion_id, comentario_id, emisor_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        comentario.usuario_id,
-        'like_comentario',
-        'Le gustó tu comentario',
-        publicacion_id,
-        comentario_id,
-        usuario_id,
-      ]
+    // ⚠️ Verificar si ya existe notificación igual
+    const [yaExiste] = await pool.query(
+      `SELECT id FROM notificaciones 
+       WHERE usuario_id = ? AND tipo = 'like_comentario' 
+       AND comentario_id = ? AND emisor_id = ?`,
+      [comentario.usuario_id, comentario_id, usuario_id]
     );
+
+    if (yaExiste.length === 0) {
+      // 📩 Crear notificación interna
+      await pool.query(
+        `INSERT INTO notificaciones 
+         (usuario_id, tipo, contenido, publicacion_id, comentario_id, emisor_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          comentario.usuario_id,
+          'like_comentario',
+          'Le gustó tu comentario',
+          publicacion_id,
+          comentario_id,
+          usuario_id,
+        ]
+      );
+
+      // 📲 Notificación push
+      const [[emisor]] = await pool.query(
+        'SELECT nombre FROM usuarios WHERE id = ?',
+        [usuario_id]
+      );
+
+      await enviarNotificacionPush(
+        comentario.usuario_id,
+        '¡Like a tu comentario!',
+        `${emisor.nombre} le dio like a tu comentario`,
+        { tipo: 'like_comentario', comentario_id, publicacion_id }
+      );
+    }
   }
 
   return { liked: true };
 };
+
 
 
 //Función para obtener un comentario
@@ -2076,6 +2204,19 @@ export const buscarUsuarios = async (query, actualUserId) => {
 
 // Crear solicitud de amistad
 export const crearSolicitudAmistad = async (solicitanteId, receptorId) => {
+  // ✅ Evitar duplicadas
+  const [existente] = await pool.query(
+    `SELECT id FROM solicitudes_amistad 
+     WHERE usuario_solicitante_id = ? AND usuario_receptor_id = ? AND estado = 'pendiente'`,
+    [solicitanteId, receptorId]
+  );
+
+  if (existente.length > 0) {
+    console.log('⚠️ Solicitud ya existente');
+    return { success: false, message: 'Solicitud ya enviada' };
+  }
+
+  // ✅ Insertar solicitud
   const [result] = await pool.query(
     'INSERT INTO solicitudes_amistad (usuario_solicitante_id, usuario_receptor_id) VALUES (?, ?)',
     [solicitanteId, receptorId]
@@ -2083,7 +2224,7 @@ export const crearSolicitudAmistad = async (solicitanteId, receptorId) => {
 
   const solicitudId = result.insertId;
 
-  // Notificación con emisor incluido
+  // ✅ Crear notificación
   await crearNotificacion(
     receptorId,
     'solicitud_amistad',
@@ -2091,7 +2232,23 @@ export const crearSolicitudAmistad = async (solicitanteId, receptorId) => {
     solicitudId,
     solicitanteId
   );
+
+  // ✅ Obtener nombre del solicitante para notificación push
+  const [[usuario]] = await pool.query(
+    `SELECT nombre FROM usuarios WHERE id = ?`,
+    [solicitanteId]
+  );
+
+  await enviarNotificacionPush(
+    receptorId,
+    '👥 Nueva solicitud de amistad',
+    `${usuario.nombre} te ha enviado una solicitud`,
+    { tipo: 'solicitud_amistad', solicitud_id: solicitudId }
+  );
+
+  return { success: true, message: 'Solicitud enviada' };
 };
+
 
 // Obtener solicitudes recibidas
 export const obtenerSolicitudesRecibidas = async (usuarioId) => {
@@ -2104,48 +2261,86 @@ export const obtenerSolicitudesRecibidas = async (usuarioId) => {
 
 // Responder solicitud de amistad
 export const responderSolicitud = async (solicitudId, estado) => {
+  // ✅ Actualizar estado de la solicitud
   await pool.query(
     'UPDATE solicitudes_amistad SET estado = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?',
     [estado, solicitudId]
   );
 
+  // ✅ Obtener datos de la solicitud
+  const [solicitudResult] = await pool.query('SELECT * FROM solicitudes_amistad WHERE id = ?', [solicitudId]);
+  const data = solicitudResult[0];
+
+  if (!data) return;
+
+  const solicitanteId = data.usuario_solicitante_id;
+  const receptorId = data.usuario_receptor_id;
+
   if (estado === 'aceptada') {
-    const [solicitud] = await pool.query('SELECT * FROM solicitudes_amistad WHERE id = ?', [solicitudId]);
-    const data = solicitud[0];
-    await pool.query('INSERT INTO amigos (usuario_id, amigo_id) VALUES (?, ?), (?, ?)', [
-      data.usuario_solicitante_id,
-      data.usuario_receptor_id,
-      data.usuario_receptor_id,
-      data.usuario_solicitante_id,
+    // ✅ Insertar amistad en ambas direcciones
+    await pool.query('INSERT IGNORE INTO amigos (usuario_id, amigo_id) VALUES (?, ?), (?, ?)', [
+      solicitanteId, receptorId,
+      receptorId, solicitanteId,
     ]);
-    const contenido = `Tu solicitud de amistad fue aceptada`;
-    await crearNotificacion(data.usuario_solicitante_id, 'solicitud_amistad', contenido);
+
+    // ✅ Crear notificación interna
+    await crearNotificacion(
+      solicitanteId,                        // Quien recibe la notificación
+      'solicitud_amistad',                 
+      'Tu solicitud de amistad fue aceptada',
+      null,                                 // solicitudId (puede ser null si no lo usas)
+      receptorId                            // ✅ El que acepta la solicitud
+    );    
+
+    // ✅ Obtener nombre del receptor (quien aceptó)
+    const [[receptor]] = await pool.query(
+      'SELECT nombre FROM usuarios WHERE id = ?',
+      [receptorId]
+    );
+
+    // ✅ Notificación push
+    await enviarNotificacionPush(
+      solicitanteId,
+      '🎉 ¡Solicitud aceptada!',
+      `${receptor.nombre} aceptó tu solicitud de amistad`,
+      { tipo: 'solicitud_aceptada' }
+    );
   }
 };
 
+
 // Compartir las rutinas (múltiples rutinas)
 async function compartirMultiplesRutinas(usuarioId, destinoId, rutinaIds) {
-  const mensaje = 'Te ha compartido una rutina';
+  const mensaje = 'te ha compartido una rutina';
 
-  // Iteramos por cada rutina y la compartimos
-  for (const id of rutinaIds) {
-    // Insertamos la rutina compartida
+  for (const rutinaId of rutinaIds) {
+    // ✅ Insertar rutina compartida
     const [result] = await pool.query(
       'INSERT INTO rutinas_compartidas (rutina_id, usuario_id, usuario_destino_id, mensaje) VALUES (?, ?, ?, ?)',
-      [id, usuarioId, destinoId, mensaje]
+      [rutinaId, usuarioId, destinoId, mensaje]
     );
 
-    // Recuperamos el id de la rutina compartida insertada
     const rutinaCompId = result.insertId;
-    console.log(rutinaCompId)
-    console.log('Hola mundo');
 
-    // Crear la notificación para esta rutina compartida
+    // ✅ Crear notificación interna
     await crearNotificacion(destinoId, 'rutina_compartida', mensaje, null, usuarioId, rutinaCompId);
-  }
 
-  console.log('Todas las rutinas compartidas y notificaciones creadas');
+    // ✅ Obtener nombre del emisor
+    const [[emisor]] = await pool.query(
+      'SELECT nombre FROM usuarios WHERE id = ?',
+      [usuarioId]
+    );
+
+    // ✅ Notificación push
+    await enviarNotificacionPush(
+      destinoId,
+      '🏋️ Rutina compartida',
+      `${emisor.nombre} ${mensaje}`,
+      { tipo: 'rutina_compartida', rutina_compartida_id: rutinaCompId }
+    );
+  }
 }
+
 
 // Obtener rutinas compartidas
 // 📦 Función para obtener rutinas compartidas con días asignados
@@ -2212,9 +2407,10 @@ async function obtenerRutinasCompartidas(usuarioId) {
     connection.release();
   }
 }
+
 //Función para agregar un rutina desde las que se comparten en las publicaciones
 async function obtenerRutinaCompartida({ rutina_id, usuario_id, usuario_destino_id }) {
-  // Verificar si ya existe
+  // 1. Verificar si ya la tiene
   const [existe] = await pool.query(
     `SELECT id FROM rutinas_compartidas 
      WHERE rutina_id = ? AND usuario_destino_id = ?`,
@@ -2225,24 +2421,98 @@ async function obtenerRutinaCompartida({ rutina_id, usuario_id, usuario_destino_
     return { yaExiste: true };
   }
 
-  // Insertar si no existe
+  // 2. Insertar como aceptada
   await pool.query(
     `INSERT INTO rutinas_compartidas (rutina_id, usuario_id, usuario_destino_id, estado)
      VALUES (?, ?, ?, 'aceptada')`,
     [rutina_id, usuario_id, usuario_destino_id]
   );
 
+  // 3. 🔔 Notificación al creador de la rutina
+  const [[creador]] = await pool.query(
+    `SELECT u.id AS creador_id, u.nombre AS creador_nombre
+     FROM rutinas r JOIN usuarios u ON r.usuario_id = u.id
+     WHERE r.id = ?`,
+    [rutina_id]
+  );
+
+  const [[emisor]] = await pool.query(
+    `SELECT nombre FROM usuarios WHERE id = ?`,
+    [usuario_destino_id]
+  );
+
+  if (creador.creador_id !== usuario_destino_id) {
+    const texto = `${emisor.nombre} ha guardado una de tus rutinas`;
+
+    await crearNotificacion(
+      creador.creador_id,
+      'rutina_guardada',
+      texto,
+      null,
+      usuario_destino_id,
+      null,
+      rutina_id
+    );
+
+    await enviarNotificacionPush(
+      creador.creador_id,
+      '📥 Rutina guardada',
+      texto,
+      { tipo: 'rutina_guardada', rutina_id }
+    );
+  }
+
   return { yaExiste: false };
 }
 
 
+
 // Responder rutina compartida
 export const responderRutinaCompartida = async (compartidaId, estado) => {
+  // 1. Actualizar estado
   await pool.query(
     'UPDATE rutinas_compartidas SET estado = ?, fecha_respuesta = CURRENT_TIMESTAMP WHERE id = ?',
     [estado, compartidaId]
   );
+
+  // 2. Obtener detalles de la rutina compartida
+  const [[compartida]] = await pool.query(
+    `SELECT rc.rutina_id, rc.usuario_id AS emisor_id, rc.usuario_destino_id AS receptor_id,
+            u.nombre AS nombre_receptor
+     FROM rutinas_compartidas rc
+     JOIN usuarios u ON rc.usuario_destino_id = u.id
+     WHERE rc.id = ?`,
+    [compartidaId]
+  );
+
+  const texto =
+    estado === 'aceptada'
+      ? `${compartida.nombre_receptor} aceptó tu rutina`
+      : `${compartida.nombre_receptor} rechazó tu rutina`;
+
+  // 3. Notificación
+  await crearNotificacion(
+    compartida.emisor_id,
+    'respuesta_rutina',
+    texto,
+    null,
+    compartida.receptor_id,
+    compartidaId
+  );
+
+  // 4. Push
+  await enviarNotificacionPush(
+    compartida.emisor_id,
+    `📩 Rutina ${estado === 'aceptada' ? 'aceptada' : 'rechazada'}`,
+    texto,
+    {
+      tipo: 'respuesta_rutina',
+      compartida_id: compartidaId,
+      rutina_id: compartida.rutina_id,
+    }
+  );
 };
+
 
 
 // Obtener notificaciones
