@@ -2650,6 +2650,51 @@ export const guardarPushToken = async (usuario_id, push_token) => {
   );
 };
 
+export async function getUsuarioPorId(id) {
+  try {
+    const [rows] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [id]);
+    return rows[0]; // devuelve el primer resultado (ya que el ID es único)
+  } catch (error) {
+    console.error('Error al obtener usuario por ID:', error);
+    throw error;
+  }
+}
+
+export const vaciarRutinaDeUsuario = async (usuarioId) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE usuarios SET rutina_id = NULL WHERE id = ?',
+      [usuarioId]
+    );
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// database.js
+export async function verificarAmistad(usuario1, usuario2) {
+  const [rows] = await pool.query(
+    `SELECT * FROM amigos 
+     WHERE (usuario_id = ? AND amigo_id = ?) 
+        OR (usuario_id = ? AND amigo_id = ?)`,
+    [usuario1, usuario2, usuario2, usuario1]
+  );
+  return rows.length > 0;
+}
+
+// database.js
+export async function existeSolicitudAmistadPendiente(solicitanteId, receptorId) {
+  const [rows] = await pool.query(
+    `SELECT * FROM solicitudes_amistad 
+     WHERE usuario_solicitante_id = ? AND usuario_receptor_id = ? AND estado = 'pendiente'`,
+    [solicitanteId, receptorId]
+  );
+  return rows.length > 0;
+}
+
+
+
 
 const databaseFunctions = {
   verificarCorreoTelefono,
@@ -2708,6 +2753,11 @@ const databaseFunctions = {
   eliminarAmistad,
   compartirMultiplesRutinas,
   obtenerPublicacionPorId,
-  guardarPushToken
+  guardarPushToken,
+  getUsuarioPorId,
+  vaciarRutinaDeUsuario,
+  verificarAmistad,
+  existeSolicitudAmistadPendiente
+  
 };
 export default databaseFunctions;

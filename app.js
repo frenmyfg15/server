@@ -1135,6 +1135,73 @@ app.post('/usuarios/push-token', async (req, res) => {
   }
 });
 
+// 🆕 Endpoint para obtener usuario por ID
+app.get('/usuarios/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const usuario = await databaseFunctions.getUsuarioPorId(id);
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    res.json(usuario);
+  } catch (error) {
+    console.error('Error al obtener usuario por ID:', error);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+});
+
+app.put('/usuarios/:id/vaciar-rutina', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const resultado = await databaseFunctions.vaciarRutinaDeUsuario(id);
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    res.json({ mensaje: 'Rutina desvinculada correctamente del usuario' });
+  } catch (error) {
+    console.error('Error al vaciar rutina:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+});
+
+app.get('/amistad/estado', async (req, res) => {
+  const { usuario1, usuario2 } = req.query;
+
+  if (!usuario1 || !usuario2) {
+    return res.status(400).json({ error: 'Faltan parámetros' });
+  }
+
+  try {
+    const sonAmigos = await databaseFunctions.verificarAmistad(Number(usuario1), Number(usuario2));
+    res.json({ estado: sonAmigos ? 'amigos' : 'ninguno' });
+  } catch (error) {
+    console.error('Error al verificar amistad:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.get('/solicitudes/amistad/pendiente', async (req, res) => {
+  const { solicitanteId, receptorId } = req.query;
+
+  if (!solicitanteId || !receptorId) {
+    return res.status(400).json({ error: 'Faltan parámetros' });
+  }
+
+  try {
+    const existe = await databaseFunctions.existeSolicitudAmistadPendiente(solicitanteId, receptorId);
+    res.json({ solicitudEnviada: existe });
+  } catch (error) {
+    console.error('Error al verificar solicitud pendiente:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Configurar el servidor para escuchar en un puerto
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
